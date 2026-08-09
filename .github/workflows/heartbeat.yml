@@ -1,0 +1,28 @@
+name: Supabase heartbeat
+
+# Keeps the free-tier Supabase project from auto-pausing due to inactivity.
+# Anonymous, unauthenticated REST call — RLS returns 0 rows, but a 200 response is
+# enough to register as project activity. Note: GitHub disables scheduled workflows
+# after 60 days with no repo activity at all — a long-idle repo needs an occasional
+# manual re-enable (Actions tab) or a push to keep this itself alive.
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST endpoint
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/training_entries?select=id&limit=1")
+          echo "Response code: $code"
+          if [ "$code" -ge 400 ]; then
+            echo "::error::Heartbeat ping failed with HTTP $code"
+            exit 1
+          fi

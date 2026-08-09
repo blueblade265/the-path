@@ -1,0 +1,37 @@
+/* Design tokens ported from The Path v3.dc.html mockup. */
+:root {
+  --bg: #0d0e0a;
+  --card-bg: #1A1C15;
+  --card-bg-alt: #15170F;
+  --card-border: #2A2D22;
+  --card-border-alt: #23261C;
+  --card-border-strong: #3C4033;
+
+  --text-primary: #EAE7DB;
+  --text-secondary: #9C9A87;
+  --text-body: #C9C6B6;
+  --text-muted: #7E8069;
+  --text-dim: #6E7360;
+  --text-faint: #5C6247;
+  --text-ghost: #4A4E3F;
+
+  --moss: #7E9455;
+  --moss-hi: #A3BE73;
+  --amber: #D19A2E;
+  --amber-hi: #E8B44A;
+  --clay: #A8544A;
+  --clay-hi: #C2776A;
+  --clay-pale: #E0B8AE;
+
+  --font-display: 'Oswald', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+}
+
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulseRing { 0% { opacity: .45; } 50% { opacity: 1; } 100% { opacity: .45; } }
