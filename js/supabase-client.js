@@ -17,7 +17,13 @@ export const supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 export function signInWithGoogle() {
   return supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin }
+    // origin alone drops the GitHub Pages project-site base path (e.g. /the-path/),
+    // sending the OAuth redirect to the domain root, which 404s. pathname at the
+    // moment sign-in is clicked IS the app's base path (this is a single-page app
+    // with no client-side routing, so location never points anywhere else) — this
+    // works unchanged for local dev (served at /) and for the deployed base path,
+    // and needs no update if the repo/site name ever changes.
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
 }
 

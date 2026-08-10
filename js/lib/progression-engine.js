@@ -169,7 +169,7 @@ const RULE_MAP = {
   'ring-row':     { type:'REPS', unit:'reps' },
   'pull-up':      { type:'REPS', unit:'reps' },
   // TODO(user): replace placeholder tier names with the real Horse Stance ladder.
-  'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['TODO: stage 1 name','TODO: stage 2 name','TODO: stage 3 name','TODO: stage 4 name'] } },
+  'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Wall Assisted','Free Standing','Weighted'] } },
   'pistol-squat': { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Box-Assisted (high)','Box-Assisted (low)','Band-Assisted','Full'] } },
   'single-leg-balance': { type:'HOLD_TIME', unit:'sec' },
   'nordic-curl':  { type:'REPS', unit:'reps' },
@@ -178,7 +178,7 @@ const RULE_MAP = {
   'dragon-flag':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Tuck','Advanced Tuck','Single-Leg','Straddle','Full'] } },
   // TODO(user): "Side Plank" is the confirmed first stage; replace the remaining
   // placeholders with the real Side Lever ladder.
-  'side-lever':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Side Plank','TODO: stage 2 name','TODO: stage 3 name','TODO: stage 4 name'] } },
+  'side-lever':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Side Plank','Side Plank-Feet Elevated','Tucked','Advanced Tuck','Single-Leg','Straddle','Full'] } },
   'toes-to-bar':  { type:'REPS', unit:'reps' },
   'hollow-hold-retest': { type:'HOLD_TIME', unit:'sec' },
   'screen-shoulder-flexion':{ type:'SCREEN', unit:'note' },
