@@ -4,10 +4,7 @@
 // here MUST match a RULE_MAP key exactly, or computeRx() silently returns null for it.
 // Everything else here (name, coaching copy, cues, abort condition, stepper unit/step) is
 // UI/display metadata reconciled from the design mockup (The Path v3.dc.html) against the
-// real RULE_MAP, per the plan's reconciliation table. Two categories needed correction
-// during that reconciliation, flagged inline below:
-//   - pull-up is REPS in RULE_MAP (flat rep progression) though the mockup mocked it up
-//     as a staged ladder — RULE_MAP wins, it's rendered flat here like ring-row.
+// real RULE_MAP, per the plan's reconciliation table.
 //   - screen-couch-stretch / screen-thoracic-rotation have no mockup source at all —
 //     their copy is freshly authored, not ported.
 
@@ -87,12 +84,11 @@ export const EXERCISES = {
     cues: ["Ring height sets the difficulty — keep last week's angle.", 'Elbows track back along the ribs.'],
     abort: 'Hips sag, or elbows flare wide.'
   },
-  // RULE_MAP classifies pull-up as REPS (flat), not the staged ladder the mockup mocked
-  // up — rendered flat, same pattern as ring-row above.
+  // TIER — Negative / Full / High Pull / Muscle Up.
   'pull-up': {
     name: 'Pull-Up (rings)', unit: 'clean reps', step: 1, suffix: '',
-    coach: 'From a full hang. No swing.',
-    cues: ['Scaps down first, then elbows to your back pockets.', 'Full extension at the bottom of every rep.'],
+    coach: 'At your current stage. From a full hang. No swing.',
+    cues: ['Scaps down first, then elbows to your back pockets.', 'Full extension at the bottom of every rep — or full control on the way down at Negative.'],
     abort: 'Any swing, any kip, any partial rep.'
   },
   // TIER — see progression-engine.js TODO(user) for the real Horse Stance ladder.

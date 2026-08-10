@@ -36,6 +36,11 @@ the hardest stage needs generalizing, same as was done for the exercises above).
      data was logged before "Not yet achievable — block assist" was inserted at the
      front of its tier ladder — shifts existing stage indices by one so old entries
      still point at the correct stage name.
+   - `supabase/migration_005_pull_up_tier.sql`: run once if any pull-up data was
+     logged before it was reclassified from flat reps to a staged ladder (Negative /
+     Full / High Pull / Muscle Up) — converts existing rep-count values into
+     stage 1 ("Full") + performance, since every pull-up logged before this was a
+     full pull-up.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql
