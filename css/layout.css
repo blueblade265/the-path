@@ -8,8 +8,14 @@ a:hover { color: var(--amber-hi); }
 #app {
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* A fixed height, not min-height — min-height is only a floor, so a long exercise
+     list would grow #app past the viewport, the whole PAGE would scroll instead of
+     .screen's own overflow-y, and .tab-bar (position:absolute, bottom:0 relative to
+     #app) would end up pinned to the bottom of that oversized box, off-screen below
+     the fold, instead of staying fixed like a real app nav bar. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -22,8 +28,6 @@ a:hover { color: var(--amber-hi); }
   overflow-y: auto;
   padding: 6px 20px 118px;
 }
-
-.screen--tight { padding-bottom: 14px; }
 
 .kicker {
   font: 500 10.5px/1 var(--font-mono);
@@ -137,5 +141,5 @@ a:hover { color: var(--amber-hi); }
 }
 
 @media (min-width: 481px) {
-  #app { box-shadow: 0 0 0 1px var(--card-border); border-radius: 18px; margin: 24px auto; min-height: calc(100vh - 48px); }
+  #app { box-shadow: 0 0 0 1px var(--card-border); border-radius: 18px; margin: 24px auto; height: calc(100vh - 48px); }
 }

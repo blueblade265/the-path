@@ -41,7 +41,7 @@ export async function renderSession(container, ctx, target) {
   let unlocked = false;
 
   const header = el('div', { style: 'flex:none;padding:4px 20px 12px;border-bottom:1px solid var(--card-border)' });
-  const list = el('div', { class: 'screen screen--tight', style: 'flex:1' });
+  const list = el('div', { class: 'screen', style: 'flex:1' });
   wrap.appendChild(header);
   wrap.appendChild(list);
 
