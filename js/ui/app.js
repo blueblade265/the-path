@@ -84,7 +84,10 @@ async function renderApp(userId, email, startDate) {
   clear(root);
   const skips = await getWeekSkips(userId);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayWeekDay = weekDayForDate(startDate, skips, today);
+  // null when the program hasn't started yet (a future start date) — fall back to
+  // "week 0, start date's weekday" so tabs that default to ctx.todayWeekDay have
+  // something sane to render rather than crashing; there's nothing to log yet either way.
+  const todayWeekDay = weekDayForDate(startDate, skips, today) || { week: 0, day: startDate.getDay() };
 
   const ctx = {
     userId, email, startDate, skips, todayWeekDay,
@@ -93,7 +96,7 @@ async function renderApp(userId, email, startDate) {
       const s = await getProgramSettings(userId);
       ctx.startDate = s.startDate;
       ctx.skips = await getWeekSkips(userId);
-      ctx.todayWeekDay = weekDayForDate(ctx.startDate, ctx.skips, today);
+      ctx.todayWeekDay = weekDayForDate(ctx.startDate, ctx.skips, today) || { week: 0, day: ctx.startDate.getDay() };
     }
   };
 

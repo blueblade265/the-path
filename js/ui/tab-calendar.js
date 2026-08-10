@@ -15,7 +15,9 @@ export async function renderCalendar(container, ctx, target) {
   const entries = await allEntries(ctx.userId);
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  let selectedDate = target ? dateForWeekDay(ctx.startDate, ctx.skips, target.week, target.day) : today;
+  // If today is before the program's start date (a future start date), there's no
+  // "today" within the program to default to — land on start_date itself instead.
+  let selectedDate = target ? dateForWeekDay(ctx.startDate, ctx.skips, target.week, target.day) : (today < ctx.startDate ? ctx.startDate : today);
   let weekOffset = Math.round((startOfWeek(selectedDate) - startOfWeek(today)) / (7 * 86400000));
   let monthOpen = false;
 
@@ -55,7 +57,18 @@ function arrowBtn(label, onClick) {
 }
 
 function dayTile(date, ctx, entries, selectedDate, onPick) {
-  const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, date);
+  const wd = weekDayForDate(ctx.startDate, ctx.skips, date);
+
+  if (!wd) {
+    // Before the program started — dimmed, not selectable.
+    return el('div', { class: 'day-tile', style: 'opacity:.35' }, [
+      el('div', { class: 'day-tile__dow', text: DOW_LETTERS[date.getDay()] }),
+      el('div', { class: 'day-tile__num', text: String(date.getDate()) }),
+      el('div', { class: 'day-tile__dot' })
+    ]);
+  }
+
+  const { week, day } = wd;
   const meta = dayMeta(day);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const cmp = new Date(date); cmp.setHours(0, 0, 0, 0);
@@ -81,7 +94,15 @@ function monthGrid(selectedDate, ctx, entries, onPick) {
     const d = addDays(gridStart, i);
     const inMonth = d.getMonth() === selectedDate.getMonth();
     if (!inMonth) return el('div', { class: 'month-cell' });
-    const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, d);
+    const wd = weekDayForDate(ctx.startDate, ctx.skips, d);
+    if (!wd) {
+      // Before the program started — shown but dimmed, not selectable.
+      return el('div', { class: 'month-cell', style: 'opacity:.3' }, [
+        el('div', { style: 'font:500 12px/1 var(--font-display);color:var(--text-body)', text: String(d.getDate()) }),
+        el('div', { style: 'width:4px;height:4px' })
+      ]);
+    }
+    const { week, day } = wd;
     const meta = dayMeta(day);
     const logged = entries.some(e => e.week === week && e.day === day);
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -100,7 +121,15 @@ function monthGrid(selectedDate, ctx, entries, onPick) {
 }
 
 function selectedDayCard(date, ctx, entries, today) {
-  const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, date);
+  const wd = weekDayForDate(ctx.startDate, ctx.skips, date);
+  if (!wd) {
+    return el('div', { class: 'card' }, [
+      el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px', text: 'Before your program' }),
+      el('div', { style: 'font:600 24px/1.05 var(--font-display);text-transform:uppercase;color:var(--text-primary)', text: 'Not started yet' }),
+      el('div', { style: 'font:400 12px/1.4 var(--font-body);color:var(--text-secondary);margin-top:5px', text: `Your program starts ${ctx.startDate.toLocaleDateString()}. Nothing was scheduled before that.` })
+    ]);
+  }
+  const { week, day } = wd;
   const meta = dayMeta(day);
   const cmp = new Date(date); cmp.setHours(0, 0, 0, 0);
   const isToday = cmp.getTime() === today.getTime();

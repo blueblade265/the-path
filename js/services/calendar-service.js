@@ -3,10 +3,15 @@
 // (and everything progression-engine.js cares about — weekIndex ordering) never change
 // when a week is skipped; only the real-world date those exercises land on shifts.
 //
-// Model: `week` blocks are calendar-week-aligned to program_settings.start_date's own
-// weekday. Each row in week_skips inserts exactly one extra calendar week of gap before
-// the given program week starts. `day` (0=Sunday..6=Saturday, see day-plan.js) is a real
-// day-of-week, not an offset from start_date.
+// Model: week blocks are anchored to program_settings.start_date ITSELF — week 0's
+// first day is exactly start_date (whatever weekday that is), not the Sunday of that
+// calendar week. This is deliberate: start_date is literally "Week 0 Day 1," so nothing
+// before it is ever part of the program. weekDayForDate() returns null for any date
+// before start_date — callers MUST treat null as "before the program began" (not
+// schedulable, not loggable, not "missed") rather than falling through to a negative
+// week number. Each row in week_skips inserts exactly one extra calendar week of gap
+// before the given program week starts. `day` (0=Sunday..6=Saturday, see day-plan.js)
+// is a real day-of-week, derived from the date itself — never an offset from start_date.
 
 import { supabase } from '../supabase-client.js';
 
@@ -57,26 +62,28 @@ function offsetForWeek(week, skips) {
   return skips.filter(w => w < week).length;
 }
 
-// date(week, day) = the Sunday of week `week`'s calendar block, plus `day`.
+// date(week, day) = start_date + 7*(week + offset(week)) + (day's offset from
+// start_date's own weekday within that 7-day block). week 0, day = start_date's weekday
+// always resolves to exactly start_date.
 export function dateForWeekDay(startDate, skips, week, day) {
   const startDow = startDate.getDay();
-  const blockStart = addDays(startDate, 7 * (week + offsetForWeek(week, skips)));
-  const sundayOfBlock = addDays(blockStart, -startDow);
-  return addDays(sundayOfBlock, day);
+  const dayOffsetInBlock = (day - startDow + 7) % 7;
+  return addDays(startDate, 7 * (week + offsetForWeek(week, skips)) + dayOffsetInBlock);
 }
 
 // Inverse of dateForWeekDay: given a real date, resolve the program week/day it belongs
-// to. Skips are sparse, so this converges in at most (skips.length + 2) iterations.
+// to, or null if the date is before start_date (there is no program week for it — the
+// caller must not treat this as week -1, -2, etc.). Skips are sparse, so the iterative
+// solve converges in at most (skips.length + 2) steps.
 export function weekDayForDate(startDate, skips, date) {
+  if (date < startDate) return null;
   const day = date.getDay();
-  const startDow = startDate.getDay();
-  const sundayOfStart = addDays(startDate, -startDow);
-  const sundayOfDate = addDays(date, -day);
-  const calendarWeeksElapsed = Math.round((sundayOfDate - sundayOfStart) / (7 * 86400000));
+  const daysSinceStart = Math.round((date - startDate) / 86400000);
+  const totalBlocksElapsed = Math.floor(daysSinceStart / 7);
 
-  let week = calendarWeeksElapsed;
+  let week = totalBlocksElapsed;
   for (let i = 0; i < skips.length + 2; i++) {
-    const candidate = calendarWeeksElapsed - offsetForWeek(week, skips);
+    const candidate = totalBlocksElapsed - offsetForWeek(week, skips);
     if (candidate === week) break;
     week = candidate;
   }

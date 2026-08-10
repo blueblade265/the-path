@@ -1,7 +1,7 @@
 import { el, clear } from './dom.js';
 import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { loadInsights, forecastText } from '../services/insights-service.js';
-import { dateForWeekDay, weekDayForDate } from '../services/calendar-service.js';
+import { weekDayForDate } from '../services/calendar-service.js';
 import { openDetail } from './detail-sheet.js';
 
 const DOW_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -18,8 +18,9 @@ export async function renderHome(container, ctx) {
   for (let i = 0; i < 7; i++) {
     const d = addDays(sunday, i);
     if (d > today) continue;
-    const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, d);
-    if (!dayMeta(day).rest) scheduledSlots.push({ week, day });
+    const wd = weekDayForDate(ctx.startDate, ctx.skips, d);
+    if (!wd) continue; // before the program started — not a scheduled day
+    if (!dayMeta(wd.day).rest) scheduledSlots.push(wd);
   }
 
   const { entries, streak, chasing, consistency } = await loadInsights(ctx.userId, scheduledSlots);
@@ -61,12 +62,22 @@ export async function renderHome(container, ctx) {
 
   const weekGrid = el('div', { style: 'display:flex;gap:6px' }, Array.from({ length: 7 }, (_, i) => {
     const d = addDays(sunday, i);
-    const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, d);
+    const wd = weekDayForDate(ctx.startDate, ctx.skips, d);
+    const isToday = d.toDateString() === today.toDateString();
+
+    if (!wd) {
+      // Before the program started — not clickable, no dot, just a dimmed placeholder.
+      return el('div', { style: 'flex:1;border-radius:10px;padding:11px 0 10px;text-align:center;background:var(--card-bg-alt);border:1px solid var(--card-border);opacity:.4' }, [
+        el('div', { style: 'font:600 11px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)', text: DOW_LETTERS[i] }),
+        el('div', { style: 'font:400 13px/1 var(--font-body);margin-top:8px;color:var(--card-border-strong)', text: '·' })
+      ]);
+    }
+
+    const { week, day } = wd;
     const meta = dayMeta(day);
     const logged = entries.some(e => e.week === week && e.day === day);
     const isFuture = d > today;
     const mark = meta.rest ? '—' : (logged ? '✓' : (isFuture ? '·' : '•'));
-    const isToday = d.toDateString() === today.toDateString();
     return el('div', {
       style: `flex:1;border-radius:10px;padding:11px 0 10px;text-align:center;cursor:pointer;background:${isToday ? 'rgba(209,154,46,.16)' : 'var(--card-bg-alt)'};border:1px solid ${isToday ? 'var(--amber)' : 'var(--card-border)'}`,
       onClick: () => ctx.navigate('calendar', { week, day })
