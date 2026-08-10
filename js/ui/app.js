@@ -24,18 +24,25 @@ const root = document.getElementById('app');
 let currentTab = 'home';
 let navArgs = null;
 
-// Supabase's onAuthStateChange commonly fires more than once in quick succession on
-// load (an INITIAL_SESSION event, then a SIGNED_IN/TOKEN_REFRESHED shortly after as a
-// persisted session gets rehydrated) — handleSession/renderApp are async with several
-// awaits before their first DOM write, so two overlapping calls could each pass their
-// own clear(root) and then both append a full content+tab-bar into root (two flex:1
-// panes splitting the shell, each independently scrolling — exactly the duplicated
-// Home content bug this was found from). renderGen makes every call check, right
-// before it mutates the DOM, whether a newer call has since started; if so it bails
-// instead of writing stale/duplicate output.
+// Supabase's onAuthStateChange commonly fires more than once for the SAME user with no
+// real change — shortly after initial load as the client settles, and (critically)
+// every time the tab regains focus/visibility, e.g. switching to another app mid-workout
+// and back. renderGen (below) already stops two overlapping renders from both writing
+// to the DOM (the duplicated-Home-content bug), but every firing still triggered a full,
+// legitimate clear(root)+rebuild — which silently discarded in-progress session state
+// that only ever lived in memory: how many sets you'd logged as chips this browsing
+// session (the schema only persists the last one) and the rest timer's visible
+// countdown banner (its underlying setInterval kept running detached from the DOM,
+// which is exactly why the chime still fired with no display to show it). Skipping
+// redundant events for a user we already have a live render for fixes both — nothing
+// gets torn down, so nothing needs to be restored.
+let renderedForUserId; // undefined = nothing rendered yet; null = signed out
 let renderGen = 0;
 
 onAuthStateChange(session => {
+  const newUserId = session?.user?.id ?? null;
+  if (renderedForUserId !== undefined && newUserId === renderedForUserId) return;
+  renderedForUserId = newUserId;
   const gen = ++renderGen;
   handleSession(session, gen).catch(err => { if (gen === renderGen) showFatalError(err); });
 });

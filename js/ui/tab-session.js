@@ -85,7 +85,8 @@ export async function renderSession(container, ctx, target) {
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const existing = dayEntries.find(e => e.exercise_id === id);
-      list.appendChild(await renderCard(id, i, ids.length, { week, day, ds, canLog, missed, isRetestWeek, rx: rx[id], existing }, ctx, drawList));
+      const isLastExercise = i === ids.length - 1;
+      list.appendChild(await renderCard(id, i, ids.length, { week, day, ds, canLog, missed, isRetestWeek, isLastExercise, rx: rx[id], existing }, ctx, drawList));
     }
   }
 
@@ -230,8 +231,12 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
     if (sessionSets.length < 3) sessionSets.push(draftValue); else sessionSets[2] = draftValue;
     redrawChips();
     cta.textContent = 'Logged ✓';
-    const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
-    box.appendChild(node);
+    // No rest to take after the very last set of the very last exercise — the workout's over.
+    const isFinalSetOfWorkout = state.isLastExercise && sessionSets.length >= 3;
+    if (!isFinalSetOfWorkout) {
+      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+      box.appendChild(node);
+    }
   });
 
   box.appendChild(step);
@@ -292,8 +297,11 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
     await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue, formClean: cleanState, notes: notes.value });
     if (isLive) {
       cta.textContent = 'Logged ✓';
-      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
-      box.appendChild(node);
+      // No rest to take after the very last exercise of the workout.
+      if (!state.isLastExercise) {
+        const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+        box.appendChild(node);
+      }
     } else {
       cta.textContent = 'Saved ✓';
     }
