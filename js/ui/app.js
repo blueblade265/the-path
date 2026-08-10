@@ -24,11 +24,26 @@ const root = document.getElementById('app');
 let currentTab = 'home';
 let navArgs = null;
 
-onAuthStateChange(session => handleSession(session).catch(showFatalError));
+// Supabase's onAuthStateChange commonly fires more than once in quick succession on
+// load (an INITIAL_SESSION event, then a SIGNED_IN/TOKEN_REFRESHED shortly after as a
+// persisted session gets rehydrated) — handleSession/renderApp are async with several
+// awaits before their first DOM write, so two overlapping calls could each pass their
+// own clear(root) and then both append a full content+tab-bar into root (two flex:1
+// panes splitting the shell, each independently scrolling — exactly the duplicated
+// Home content bug this was found from). renderGen makes every call check, right
+// before it mutates the DOM, whether a newer call has since started; if so it bails
+// instead of writing stale/duplicate output.
+let renderGen = 0;
 
-async function handleSession(session) {
-  clear(root);
+onAuthStateChange(session => {
+  const gen = ++renderGen;
+  handleSession(session, gen).catch(err => { if (gen === renderGen) showFatalError(err); });
+});
+
+async function handleSession(session, gen) {
   if (!session) {
+    if (gen !== renderGen) return;
+    clear(root);
     renderSignInGate();
     return;
   }
@@ -36,18 +51,22 @@ async function handleSession(session) {
   const userId = session.user.id;
 
   const approved = await isApproved(email);
+  if (gen !== renderGen) return;
   if (!approved) {
+    clear(root);
     renderNotAuthorizedGate(email);
     return;
   }
 
   const settings = await getProgramSettings(userId);
+  if (gen !== renderGen) return;
   if (!settings) {
+    clear(root);
     renderOnboardingGate(userId, email);
     return;
   }
 
-  await renderApp(userId, email, settings.startDate);
+  await renderApp(userId, email, settings.startDate, gen);
 }
 
 function renderSignInGate() {
@@ -77,17 +96,17 @@ function renderOnboardingGate(userId, email) {
       onClick: async () => {
         if (!dateInput.value) return;
         await restartProgram(userId, new Date(dateInput.value + 'T00:00:00'));
-        await renderApp(userId, email, new Date(dateInput.value + 'T00:00:00'));
+        await renderApp(userId, email, new Date(dateInput.value + 'T00:00:00'), ++renderGen);
       }
     })
   ]));
 }
 
-async function renderApp(userId, email, startDate) {
-  clear(root);
+async function renderApp(userId, email, startDate, gen) {
   const skips = await getWeekSkips(userId);
   const restSettings = await getRestSettings(userId);
   const pendingRetestWeek = await getPendingRetestWeek(userId);
+  if (gen !== renderGen) return; // a newer auth/render event superseded this one
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // null when the program hasn't started yet (a future start date) — fall back to
   // "week 0, start date's weekday" so tabs that default to ctx.todayWeekDay have
@@ -98,6 +117,8 @@ async function renderApp(userId, email, startDate) {
   // finished) before the app was closed/reloaded, e.g. the phone was locked through
   // the whole rest period — chimes immediately if it had already elapsed.
   catchUpRestTimer(userId);
+
+  clear(root);
 
   const ctx = {
     userId, email, startDate, skips, todayWeekDay, restSettings, pendingRetestWeek,
