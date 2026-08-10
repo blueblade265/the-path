@@ -2,6 +2,8 @@ import { el, clear } from './dom.js';
 import { signInWithGoogle, signOut, onAuthStateChange } from '../supabase-client.js';
 import { isApproved } from '../services/access-service.js';
 import { getProgramSettings, getWeekSkips, restartProgram, weekDayForDate } from '../services/calendar-service.js';
+import { getRestSettings } from '../services/settings-service.js';
+import { catchUpRestTimer } from './components/rest-timer.js';
 import { mountDetailSheet } from './detail-sheet.js';
 import { renderHome } from './tab-home.js';
 import { renderSession } from './tab-session.js';
@@ -83,20 +85,29 @@ function renderOnboardingGate(userId, email) {
 async function renderApp(userId, email, startDate) {
   clear(root);
   const skips = await getWeekSkips(userId);
+  const restSettings = await getRestSettings(userId);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // null when the program hasn't started yet (a future start date) — fall back to
   // "week 0, start date's weekday" so tabs that default to ctx.todayWeekDay have
   // something sane to render rather than crashing; there's nothing to log yet either way.
   const todayWeekDay = weekDayForDate(startDate, skips, today) || { week: 0, day: startDate.getDay() };
 
+  // Catches a rest timer that was already counting down (and possibly already
+  // finished) before the app was closed/reloaded, e.g. the phone was locked through
+  // the whole rest period — chimes immediately if it had already elapsed.
+  catchUpRestTimer(userId);
+
   const ctx = {
-    userId, email, startDate, skips, todayWeekDay,
+    userId, email, startDate, skips, todayWeekDay, restSettings,
     navigate: (tabKey, args) => { currentTab = tabKey; navArgs = args || null; drawTab(); },
     reloadCalendar: async () => {
       const s = await getProgramSettings(userId);
       ctx.startDate = s.startDate;
       ctx.skips = await getWeekSkips(userId);
       ctx.todayWeekDay = weekDayForDate(ctx.startDate, ctx.skips, today) || { week: 0, day: ctx.startDate.getDay() };
+    },
+    reloadRestSettings: async () => {
+      ctx.restSettings = await getRestSettings(userId);
     }
   };
 

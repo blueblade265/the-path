@@ -2,9 +2,11 @@
 // THE PATH — PROGRESSION ENGINE (standalone module)
 //
 // App copy of ../../../progression_engine_v1.js. The RULES/CONFIG algorithm below is
-// untouched — only two RULE_MAP entries (squat-hold, side-lever) were reclassified from
-// HOLD_TIME to TIER per a real content correction (search "TODO(user)"). If the upstream
-// source file changes, re-apply that same two-entry diff rather than overwriting wholesale.
+// untouched — only RULE_MAP entries have been edited, to reclassify exercises from a
+// flat type to a staged TIER ladder as real per-exercise progressions were defined
+// (squat-hold, side-lever, nordic-curl, toes-to-bar, pike-handstand-hold so far). If the
+// upstream source file changes, re-apply the same RULE_MAP diff rather than overwriting
+// wholesale.
 //
 // Extracted verbatim from the tested artifact. This is the coaching brain:
 // it reads a user's prior logged results and computes next week's targets.
@@ -168,7 +170,6 @@ const RULE_MAP = {
   'front-lever':  { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Not yet achievable — eccentric entry','Tuck','Advanced Tuck','One-Leg','Straddle','Full'] } },
   'ring-row':     { type:'REPS', unit:'reps' },
   'pull-up':      { type:'REPS', unit:'reps' },
-  // TODO(user): replace placeholder tier names with the real Horse Stance ladder.
   'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Wall Assisted','Free Standing','Weighted'] } },
   'pistol-squat': { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Box-Assisted (high)','Box-Assisted (low)','Band-Assisted','Full'] } },
   'single-leg-balance': { type:'HOLD_TIME', unit:'sec' },
@@ -176,8 +177,6 @@ const RULE_MAP = {
   'calf-raise-hold':{ type:'HOLD_TIME', unit:'sec' },
   'l-sit':        { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Tuck L-Sit','One-Leg Extended','Full L-Sit'] } },
   'dragon-flag':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Tuck','Advanced Tuck','Single-Leg','Straddle','Full'] } },
-  // TODO(user): "Side Plank" is the confirmed first stage; replace the remaining
-  // placeholders with the real Side Lever ladder.
   'side-lever':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Side Plank','Side Plank-Feet Elevated','Tucked','Advanced Tuck','Single-Leg','Straddle','Full'] } },
   'toes-to-bar':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Tucked','Single Leg','Half Up','Full'] } },
   'hollow-hold-retest': { type:'HOLD_TIME', unit:'sec' },

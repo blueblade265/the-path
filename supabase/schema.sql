@@ -39,10 +39,12 @@ create table allowed_users (
 -- Program week/day are abstract integers; real calendar dates are derived client-side
 -- (calendar-service.js) from these two tables rather than stored per-entry.
 create table program_settings (
-  user_id      uuid primary key references auth.users(id) on delete cascade,
-  start_date   date not null,           -- this user's week-0/day-1 date. Changed only via a full
+  user_id              uuid primary key references auth.users(id) on delete cascade,
+  start_date           date not null,   -- this user's week-0/day-1 date. Changed only via a full
                                          -- "restart program" action (see policies.sql comment + app).
-  updated_at   timestamptz not null default now()
+  rest_seconds_load    integer not null default 180,  -- rest after LOAD (barbell) exercises: squat/deadlift/bench
+  rest_seconds_default integer not null default 90,   -- rest after everything else — holds, reps, tiers
+  updated_at           timestamptz not null default now()
 );
 
 create table week_skips (

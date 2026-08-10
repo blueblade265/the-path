@@ -10,7 +10,11 @@ import { restTimer } from './components/rest-timer.js';
 import { banner } from './components/banner.js';
 import { openDetail } from './detail-sheet.js';
 
-const CONFIG_REST_SECONDS = 90;
+// LOAD (barbell) work gets the longer rest; everything else (holds, reps, tiers) gets
+// the shorter default. Both numbers are user-editable in More -> Rules (settings-service.js).
+function restSecondsFor(id, ctx) {
+  return exerciseType(id) === 'LOAD' ? ctx.restSettings.load : ctx.restSettings.default;
+}
 
 export async function renderSession(container, ctx, target) {
   clear(container);
@@ -186,7 +190,7 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
     if (sessionSets.length < 3) sessionSets.push(draftValue); else sessionSets[2] = draftValue;
     redrawChips();
     cta.textContent = 'Logged ✓';
-    const { node, stop } = restTimer(CONFIG_REST_SECONDS, () => node.remove());
+    const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
     box.appendChild(node);
   });
 
@@ -245,6 +249,8 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
   cta.addEventListener('click', async () => {
     await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue, formClean: cleanState, notes: notes.value });
     cta.textContent = 'Logged ✓';
+    const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+    box.appendChild(node);
   });
 
   box.appendChild(gate);

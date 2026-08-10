@@ -4,6 +4,7 @@ import { EXERCISES, exerciseType, exerciseTiers } from '../data/exercises.js';
 import { saveBaseline } from '../services/bulk-entry-service.js';
 import { exportAsText, downloadText } from '../services/export-service.js';
 import { restartProgram } from '../services/calendar-service.js';
+import { setRestSettings } from '../services/settings-service.js';
 import { signOut } from '../supabase-client.js';
 
 export async function renderMore(container, ctx) {
@@ -28,7 +29,7 @@ function drawRoot(screen, ctx) {
   ]));
 
   screen.appendChild(group('Rules', [
-    row('Rest timer', 'Auto-starts after each logged set', '90s'),
+    row('Rest timers', 'Auto-starts after each logged set', `${ctx.restSettings.load}s / ${ctx.restSettings.default}s`, () => drawRestTimers(screen, ctx)),
     row('Sets per movement', 'Program default', '3'),
     row('Units', 'Applies to loaded lifts', 'lb')
   ]));
@@ -121,6 +122,32 @@ function drawBulkEntry(screen, ctx) {
 
   dayPicker.addEventListener('change', drawForm);
   drawForm();
+}
+
+function drawRestTimers(screen, ctx) {
+  clear(screen);
+  screen.appendChild(backBtn(() => drawRoot(screen, ctx)));
+  screen.appendChild(el('div', { class: 'page-title', text: 'Rest Timers' }));
+  screen.appendChild(el('div', { style: 'font:400 12.5px/1.5 var(--font-body);color:var(--text-secondary);margin-bottom:16px', text: 'How long the rest timer runs after you log a set, by exercise type. Starts automatically every time.' }));
+
+  screen.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px', text: 'Barbell lifts (squat, deadlift, bench)' }));
+  const loadInput = el('input', { type: 'number', class: 'notes-field', style: 'margin-bottom:16px', value: String(ctx.restSettings.load), min: '0', step: '15' });
+  screen.appendChild(loadInput);
+
+  screen.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px', text: 'Everything else (holds, reps, staged movements)' }));
+  const defaultInput = el('input', { type: 'number', class: 'notes-field', style: 'margin-bottom:16px', value: String(ctx.restSettings.default), min: '0', step: '15' });
+  screen.appendChild(defaultInput);
+
+  screen.appendChild(el('button', {
+    class: 'btn btn--primary', text: 'Save',
+    onClick: async () => {
+      const load = Math.max(0, Number(loadInput.value) || 0);
+      const defaultSeconds = Math.max(0, Number(defaultInput.value) || 0);
+      await setRestSettings(ctx.userId, { load, default: defaultSeconds });
+      await ctx.reloadRestSettings();
+      drawRoot(screen, ctx);
+    }
+  }));
 }
 
 function drawRestart(screen, ctx) {

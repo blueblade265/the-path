@@ -6,23 +6,27 @@ next week's prescriptions client-side; there's no manual weekly programming.
 
 ## Before this works
 
-Two things are known-incomplete and must be filled in before the Session tab is fully
-correct — search `js/lib/progression-engine.js` for `TODO(user)`:
+`js/data/exercises.js` has a drift-check (`console.error` on load) that fires if this
+file and `RULE_MAP` in the engine ever disagree on which exercise ids exist — check the
+browser console after any edit to either file.
 
-- **`squat-hold` (displayed as "Horse Stance")** and **`side-lever`** were reclassified
-  from a flat timed hold to a staged (`TIER`) ladder, per a real content correction. Only
-  `side-lever`'s first stage ("Side Plank") is known — every other stage name in both
-  ladders is a placeholder. Replace the `tiers` arrays in `RULE_MAP` with the real stage
-  names before relying on either exercise's progression.
-- `js/data/exercises.js` has a drift-check (`console.error` on load) that fires if this
-  file and `RULE_MAP` in the engine ever disagree on which exercise ids exist — check the
-  browser console after any edit to either file.
+Several exercises were reclassified from a flat type to a staged (`TIER`) ladder as real
+progressions were defined for them (currently: `squat-hold` "Horse Stance", `side-lever`,
+`nordic-curl`, `toes-to-bar`, `pike-handstand-hold` "Handstand" — see `RULE_MAP` in
+`js/lib/progression-engine.js`). If you add a progression for another exercise, follow
+the same pattern: change its `RULE_MAP` entry to `{ type:'TIER', unit:'tier',
+params:{ subUnit:'sec'|'reps', tiers:[...] } }`, and check whether its coach/cue/abort
+copy in `exercises.js` still holds across every stage (a cue that only makes sense at
+the hardest stage needs generalizing, same as was done for the exercises above).
 
 ## One-time setup
 
 ### 1. Supabase project
 1. Create a project at supabase.com.
 2. SQL editor: run `supabase/schema.sql`, then `supabase/policies.sql`.
+   - Already ran `schema.sql` before `rest_seconds_load`/`rest_seconds_default` existed
+     on `program_settings`? Also run `supabase/migration_002_rest_settings.sql` once —
+     a fresh install doesn't need this, `schema.sql` already includes those columns.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql
