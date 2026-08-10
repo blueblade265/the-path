@@ -32,6 +32,10 @@ the hardest stage needs generalizing, same as was done for the exercises above).
      existing project. It also backfills `is_baseline = true` onto each exercise's
      existing week-0 row, so computeRx keeps working exactly as before for anyone with
      data already logged.
+   - `supabase/migration_004_front_lever_new_stage.sql`: run once if any front-lever
+     data was logged before "Not yet achievable — block assist" was inserted at the
+     front of its tier ladder — shifts existing stage indices by one so old entries
+     still point at the correct stage name.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql

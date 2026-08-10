@@ -167,7 +167,7 @@ const RULE_MAP = {
   'scapular-pullup':    { type:'REPS', unit:'reps' },
   'dead-hang':    { type:'HOLD_TIME', unit:'sec' },
   'active-hang':  { type:'HOLD_TIME', unit:'sec' },
-  'front-lever':  { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Not yet achievable — eccentric entry','Tuck','Advanced Tuck','One-Leg','Straddle','Full'] } },
+  'front-lever':  { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Not yet achievable — block assist','Not yet achievable — eccentric entry','Tuck','Advanced Tuck','One-Leg','Straddle','Full'] } },
   'ring-row':     { type:'REPS', unit:'reps' },
   'pull-up':      { type:'REPS', unit:'reps' },
   'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Wall Assisted','Free Standing','Weighted'] } },
