@@ -172,7 +172,7 @@ const RULE_MAP = {
   'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Wall Assisted','Free Standing','Weighted'] } },
   'pistol-squat': { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Box-Assisted (high)','Box-Assisted (low)','Band-Assisted','Full'] } },
   'single-leg-balance': { type:'HOLD_TIME', unit:'sec' },
-  'nordic-curl':  { type:'REPS', unit:'reps' },
+  'nordic-curl':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Ball Rollout','Ground Push','Banded','Full'] } },
   'calf-raise-hold':{ type:'HOLD_TIME', unit:'sec' },
   'l-sit':        { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Tuck L-Sit','One-Leg Extended','Full L-Sit'] } },
   'dragon-flag':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Tuck','Advanced Tuck','Single-Leg','Straddle','Full'] } },

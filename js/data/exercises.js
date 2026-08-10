@@ -113,10 +113,11 @@ export const EXERCISES = {
     cues: ['Eyes open to failure first, then eyes closed.', 'Soft knee, quiet foot.'],
     abort: 'The lifted foot touches down.'
   },
+  // TIER — Ball Rollout / Ground Push / Banded / Full.
   'nordic-curl': {
     name: 'Nordic Curl', unit: 'clean reps', step: 1, suffix: '',
-    coach: 'Stop when the hips break.',
-    cues: ['Straight line from knees to head.', 'Lower under control with band assistance.'],
+    coach: 'At your current stage. Stop when the hips break.',
+    cues: ['Straight line from knees to head.', 'Lower under control — the eccentric is the work at every stage.'],
     abort: 'Hips break at the waist, or hamstrings cramp.'
   },
   'calf-raise-hold': {
