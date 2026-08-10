@@ -179,7 +179,7 @@ const RULE_MAP = {
   // TODO(user): "Side Plank" is the confirmed first stage; replace the remaining
   // placeholders with the real Side Lever ladder.
   'side-lever':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Side Plank','Side Plank-Feet Elevated','Tucked','Advanced Tuck','Single-Leg','Straddle','Full'] } },
-  'toes-to-bar':  { type:'REPS', unit:'reps' },
+  'toes-to-bar':  { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Tucked','Single Leg','Half Up','Full'] } },
   'hollow-hold-retest': { type:'HOLD_TIME', unit:'sec' },
   'screen-shoulder-flexion':{ type:'SCREEN', unit:'note' },
   'screen-shoulder-rotation':{ type:'SCREEN', unit:'note' },

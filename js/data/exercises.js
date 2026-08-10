@@ -145,11 +145,12 @@ export const EXERCISES = {
     cues: ['Straight line shoulder to feet, hips lifted.', 'Do not let the body rotate toward the floor.'],
     abort: 'Hips drop, or the body rotates down.'
   },
+  // TIER — Tucked / Single Leg / Half Up / Full.
   'toes-to-bar': {
     name: 'Toes-to-Bar', unit: 'clean reps', step: 1, suffix: '',
-    coach: 'Strict. Any swing ends the set.',
-    cues: ['Dead hang, legs to the bar, control both ways.', 'No knees — the hips do the work.'],
-    abort: 'Any swing, or knees substituting for hip flexion.'
+    coach: 'At your current stage. Strict — any swing ends the set.',
+    cues: ['Dead hang, drive from the hips, control both ways.', 'Full stage only: no knee bend — the hips do the work.'],
+    abort: 'Any swing, or momentum substituting for hip flexion.'
   },
   'hollow-hold-retest': {
     name: 'Hollow Hold Retest', unit: 'seconds held', step: 5, suffix: 's',
