@@ -161,7 +161,7 @@ const RULE_MAP = {
   'hollow-hold':        { type:'HOLD_TIME', unit:'sec' },
   'pushup-bottom-hold': { type:'HOLD_TIME', unit:'sec' },
   'ring-support-hold':  { type:'HOLD_TIME', unit:'sec' },
-  'pike-handstand-hold':{ type:'HOLD_TIME', unit:'sec' },
+  'pike-handstand-hold':{ type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Pike','Wall Pike','Stabilized','Free'] } },
   'scapular-pullup':    { type:'REPS', unit:'reps' },
   'dead-hang':    { type:'HOLD_TIME', unit:'sec' },
   'active-hang':  { type:'HOLD_TIME', unit:'sec' },

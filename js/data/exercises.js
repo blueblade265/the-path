@@ -50,11 +50,12 @@ export const EXERCISES = {
     cues: ['Arms straight, shoulders pushed down.', 'Rings turned slightly out.'],
     abort: 'Elbows bend or the rings drift.'
   },
+  // TIER — Pike / Wall Pike / Stabilized / Free.
   'pike-handstand-hold': {
-    name: 'Wall Pike Hold', unit: 'seconds held', step: 5, suffix: 's',
-    coach: 'Stop when the neck starts working.',
-    cues: ['Walk the feet up to a comfortable vertical.', 'Head neutral, core braced.'],
-    abort: 'Hips pike open, or the neck loads.'
+    name: 'Handstand', unit: 'seconds held', step: 5, suffix: 's',
+    coach: 'At your current stage. Stop when the position breaks down.',
+    cues: ['Head neutral, core braced, push the floor away.', 'Pike stages: walk the feet up to a comfortable vertical.'],
+    abort: 'Hips pike open early in the ladder, or you lose balance/bail out at Stabilized and Free.'
   },
   'scapular-pullup': {
     name: 'Scapular Pull-Up', unit: 'clean reps', step: 1, suffix: '',
