@@ -1,6 +1,6 @@
 import { el, clear } from './dom.js';
 import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
-import { EXERCISES, exerciseType, exerciseTiers } from '../data/exercises.js';
+import { EXERCISES, exerciseType, exerciseTiers, formatEntryValue } from '../data/exercises.js';
 import { saveBaseline } from '../services/bulk-entry-service.js';
 import { exportAsText, downloadText } from '../services/export-service.js';
 import { restartProgram, dateForWeekDay } from '../services/calendar-service.js';
@@ -176,11 +176,7 @@ async function drawBaselines(screen, ctx) {
         const spec = EXERCISES[id];
         const b = byExercise[id];
         if (!b) return row(spec.name, 'Not yet tested', '—');
-        const tiers = exerciseTiers(id);
-        const valueText = tiers
-          ? `${tiers[Math.min(Math.max(Math.round(b.value ?? 0), 0), tiers.length - 1)]}${b.sub_value != null ? ` · ${b.sub_value}${spec.suffix || ''}` : ''}`
-          : `${b.value ?? ''}${spec.suffix || ''}`;
-        return row(spec.name, `Week ${b.week}`, valueText);
+        return row(spec.name, `Week ${b.week}`, formatEntryValue(id, b) ?? '—');
       })
     ));
   }

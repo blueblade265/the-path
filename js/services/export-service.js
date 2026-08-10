@@ -3,7 +3,7 @@
 // pasted elsewhere, not parsed back in.
 
 import { allEntries } from './entries-repo.js';
-import { EXERCISES } from '../data/exercises.js';
+import { EXERCISES, formatEntryValue } from '../data/exercises.js';
 
 export async function exportAsText(userId) {
   const rows = await allEntries(userId);
@@ -17,8 +17,8 @@ export async function exportAsText(userId) {
     }
     const name = EXERCISES[r.exercise_id]?.name ?? r.exercise_id;
     const parts = [`  ${name}:`];
-    if (r.value != null) parts.push(String(r.value));
-    if (r.sub_value != null) parts.push(`(sub: ${r.sub_value})`);
+    const formatted = formatEntryValue(r.exercise_id, r);
+    if (formatted != null) parts.push(formatted);
     parts.push(r.form_clean ? '[clean]' : '[form broke]');
     if (r.notes) parts.push(`— ${r.notes}`);
     lines.push(parts.join(' '));

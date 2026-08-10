@@ -211,3 +211,24 @@ export function exerciseType(id) {
 export function exerciseTiers(id) {
   return RULE_MAP[id]?.params?.tiers ?? null;
 }
+
+// The single place that turns a training_entries row's raw value/sub_value into
+// human-readable text — every UI spot that shows a logged result (Calendar's day
+// preview, Session's read-only past-day card, the movement-history detail sheet,
+// Baselines) must go through this, not format `${entry.value}${suffix}` inline.
+// For TIER exercises, `value` is a STAGE INDEX, not a rep/time/lb number — showing it
+// raw (the bug this was written to fix) reads as "0" or "1" instead of "Full" or
+// "Tuck". Because this derives the stage name from exerciseTiers() (RULE_MAP) at call
+// time rather than baking in a label, it automatically stays correct whenever a
+// progression is added or an exercise is reclassified — no call site needs updating.
+export function formatEntryValue(exerciseId, entry) {
+  if (!entry || entry.value == null) return null;
+  const spec = EXERCISES[exerciseId];
+  const tiers = exerciseTiers(exerciseId);
+  if (tiers) {
+    const idx = Math.min(Math.max(Math.round(entry.value), 0), tiers.length - 1);
+    const stageName = tiers[idx];
+    return entry.sub_value != null ? `${stageName} · ${entry.sub_value}${spec.suffix || ''}` : stageName;
+  }
+  return `${entry.value}${spec.suffix || ''}`;
+}

@@ -1,6 +1,6 @@
 import { el, clear } from './dom.js';
 import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
-import { EXERCISES } from '../data/exercises.js';
+import { EXERCISES, formatEntryValue } from '../data/exercises.js';
 import { allEntries } from '../services/entries-repo.js';
 import { dateForWeekDay, weekDayForDate, skipWeek } from '../services/calendar-service.js';
 
@@ -143,7 +143,7 @@ function selectedDayCard(date, ctx, entries, today) {
     const e = dayEntries.find(x => x.exercise_id === id);
     const name = EXERCISES[id].name;
     if (!e) return { name, value: isPast ? 'not logged' : 'to do' };
-    return { name, value: `${e.value ?? ''}${EXERCISES[id].suffix || ''}${e.form_clean ? ' ✓' : ''}` };
+    return { name, value: `${formatEntryValue(id, e)}${e.form_clean ? ' ✓' : ''}` };
   });
 
   const card = el('div', { class: 'card' }, [

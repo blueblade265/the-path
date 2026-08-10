@@ -1,6 +1,6 @@
 import { el, clear } from './dom.js';
 import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
-import { EXERCISES, exerciseType, exerciseTiers } from '../data/exercises.js';
+import { EXERCISES, exerciseType, exerciseTiers, formatEntryValue } from '../data/exercises.js';
 import { entriesForDay, logEntry, historyForExercise, getBaseline } from '../services/entries-repo.js';
 import { prescriptionsForDay } from '../services/rx-service.js';
 import { dateForWeekDay } from '../services/calendar-service.js';
@@ -149,7 +149,7 @@ async function renderCard(id, index, total, state, ctx, redraw) {
 
   if (!state.canLog) {
     card.appendChild(el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px;border-radius:10px;background:var(--card-bg-alt);border:1px dashed var(--card-border)' }, [
-      el('div', { style: 'font:400 12px/1.45 var(--font-mono);color:var(--text-muted)', text: logged ? `Logged: ${formatExisting(existing, spec)}` : 'Opens on the day.' })
+      el('div', { style: 'font:400 12px/1.45 var(--font-mono);color:var(--text-muted)', text: logged ? `Logged: ${formatEntryValue(id, existing) ?? '—'}` : 'Opens on the day.' })
     ]));
     return card;
   }
@@ -165,11 +165,6 @@ async function renderCard(id, index, total, state, ctx, redraw) {
   }
 
   return card;
-}
-
-function formatExisting(existing, spec) {
-  if (existing.value == null) return '—';
-  return `${existing.value}${spec.suffix || ''}`;
 }
 
 // Shared "form held throughout" toggle, used by every logger variant.
@@ -408,7 +403,7 @@ async function openMovementDetail(id, ctx) {
     bars: hist.map((h, i) => ({ label: `W${h.week}`, value: h.value ?? 0, clean: h.form_clean })),
     sections: [{
       title: 'Every result',
-      rows: hist.slice().reverse().map(h => ({ name: `Week ${h.week}${baseline && h.week === baseline.week ? ' — current baseline' : ''}`, value: `${h.value ?? ''}${spec.suffix || ''}${h.form_clean ? ' ✓' : ' held'}`, color: h.form_clean ? 'var(--moss-hi)' : 'var(--clay-hi)' }))
+      rows: hist.slice().reverse().map(h => ({ name: `Week ${h.week}${baseline && h.week === baseline.week ? ' — current baseline' : ''}`, value: `${formatEntryValue(id, h) ?? '—'}${h.form_clean ? ' ✓' : ' held'}`, color: h.form_clean ? 'var(--moss-hi)' : 'var(--clay-hi)' }))
     }]
   });
 }
