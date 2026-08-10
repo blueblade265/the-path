@@ -27,6 +27,11 @@ the hardest stage needs generalizing, same as was done for the exercises above).
    - Already ran `schema.sql` before `rest_seconds_load`/`rest_seconds_default` existed
      on `program_settings`? Also run `supabase/migration_002_rest_settings.sql` once —
      a fresh install doesn't need this, `schema.sql` already includes those columns.
+   - Same for `is_baseline` (`training_entries`) and `pending_retest_week`
+     (`program_settings`): run `supabase/migration_003_baselines.sql` once on an
+     existing project. It also backfills `is_baseline = true` onto each exercise's
+     existing week-0 row, so computeRx keeps working exactly as before for anyone with
+     data already logged.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql
@@ -87,3 +92,12 @@ file. The untouched original in the parent directory still works with plain `req
   is the only bridge between it and the database, per the engine's own porting contract.
 - Coach (read-only) access is designed but not enabled — `supabase/policies_coach_future.sql`
   is additive SQL to run when that feature is actually built.
+- **Baselines**: each exercise's `is_baseline` row (`training_entries`) is what
+  `rx-service.js` actually feeds `computeRx` from — not literal week 0. It starts there
+  (Bulk Entry / a Week 0 Session save both call `entries-repo.js`'s `setBaseline`), but
+  More → Baselines → Retest schedules the next program week as a test week
+  (`program_settings.pending_retest_week`); `tab-session.js` renders that week in test
+  mode (`buildRetestLogger`) and saving there (`baseline-service.js`'s
+  `logRetestEntry`) moves the baseline forward — resetting progression math without
+  touching history. Restarting the program (`calendar-service.js`'s `restartProgram`)
+  clears every baseline and any pending retest, but never deletes the underlying rows.

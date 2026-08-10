@@ -3,13 +3,19 @@
 // week < target, ORDER BY week ASC, map rows to computeRx's entry shape, call it.
 // RLS already guarantees each user only ever sees their own rows, so this function
 // needs no per-user branching to be correct for both accounts.
+//
+// "week < target" is anchored to the exercise's CURRENT baseline (entries-repo.js's
+// historyFromBaseline), not literal week 0 — computeRx always treats whatever row it's
+// given with the lowest weekIndex as the baseline, so a completed retest (which moves
+// the is_baseline flag forward) genuinely resets progression math for free, without any
+// change to the engine itself.
 
 import { computeRx } from '../lib/progression-engine.js';
-import { historyForExercise } from './entries-repo.js';
+import { historyFromBaseline } from './entries-repo.js';
 
 // Returns { text, why } | null (null = no baseline logged yet for this exercise).
 export async function prescriptionFor(userId, exerciseId, targetWeek) {
-  const rows = await historyForExercise(userId, exerciseId, targetWeek);
+  const rows = await historyFromBaseline(userId, exerciseId, targetWeek);
   const entries = rows.map(r => ({
     id: exerciseId,
     value: r.value,

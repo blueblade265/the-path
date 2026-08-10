@@ -3,8 +3,9 @@ import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { EXERCISES, exerciseType, exerciseTiers } from '../data/exercises.js';
 import { saveBaseline } from '../services/bulk-entry-service.js';
 import { exportAsText, downloadText } from '../services/export-service.js';
-import { restartProgram } from '../services/calendar-service.js';
+import { restartProgram, dateForWeekDay } from '../services/calendar-service.js';
 import { setRestSettings } from '../services/settings-service.js';
+import { allBaselines, scheduleRetest, cancelRetest } from '../services/baseline-service.js';
 import { signOut } from '../supabase-client.js';
 
 export async function renderMore(container, ctx) {
@@ -21,6 +22,7 @@ function drawRoot(screen, ctx) {
 
   screen.appendChild(group('Data', [
     row('Bulk entry', 'Enter your Week 0 baseline, one day at a time', '→', () => drawBulkEntry(screen, ctx)),
+    row('Baselines', 'Your current reference point per exercise', ctx.pendingRetestWeek != null ? 'Retest scheduled' : '→', () => drawBaselines(screen, ctx)),
     row('Export my log', 'Plain text, yours to keep', '→', async () => {
       const text = await exportAsText(ctx.userId);
       downloadText('the-path-export.txt', text);
@@ -122,6 +124,66 @@ function drawBulkEntry(screen, ctx) {
 
   dayPicker.addEventListener('change', drawForm);
   drawForm();
+}
+
+async function drawBaselines(screen, ctx) {
+  clear(screen);
+  screen.appendChild(backBtn(() => drawRoot(screen, ctx)));
+  screen.appendChild(el('div', { class: 'page-title', text: 'Baselines' }));
+  screen.appendChild(el('div', { style: 'font:400 12.5px/1.5 var(--font-body);color:var(--text-secondary);margin-bottom:16px', text: 'What the engine is currently computing every prescription from, per exercise.' }));
+
+  if (ctx.pendingRetestWeek != null) {
+    const retestDate = dateForWeekDay(ctx.startDate, ctx.skips, ctx.pendingRetestWeek, ctx.startDate.getDay());
+    screen.appendChild(el('div', { class: 'card', style: 'border-color:var(--moss)' }, [
+      el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:8px', text: 'Retest scheduled' }),
+      el('div', { style: 'font:400 13px/1.5 var(--font-body);color:var(--text-body)', text: `Week ${ctx.pendingRetestWeek}, starting ${retestDate.toLocaleDateString()}. Every exercise scheduled that week logs as a retest — results replace your current baselines.` }),
+      el('button', {
+        class: 'btn btn--outline', style: 'margin-top:13px',
+        text: 'Cancel scheduled retest',
+        onClick: async () => {
+          await cancelRetest(ctx.userId);
+          await ctx.reloadPendingRetestWeek();
+          drawBaselines(screen, ctx);
+        }
+      })
+    ]));
+  } else {
+    screen.appendChild(el('div', { class: 'card' }, [
+      el('div', { style: 'font:400 13px/1.5 var(--font-body);color:var(--text-secondary);margin-bottom:13px', text: 'Retesting schedules next week as a test week — the Session tab prompts a fresh test for each exercise instead of prescribed work sets, gauged to your current numbers. Completing it replaces your baselines. Nothing else about your program restarts.' }),
+      el('button', {
+        class: 'btn btn--primary',
+        text: 'Retest next week',
+        onClick: async () => {
+          const nextWeek = ctx.todayWeekDay.week + 1;
+          const nextDate = dateForWeekDay(ctx.startDate, ctx.skips, nextWeek, ctx.startDate.getDay());
+          if (!confirm(`Schedule Week ${nextWeek} (starting ${nextDate.toLocaleDateString()}) as a retest week?`)) return;
+          await scheduleRetest(ctx.userId, nextWeek);
+          await ctx.reloadPendingRetestWeek();
+          drawBaselines(screen, ctx);
+        }
+      })
+    ]));
+  }
+
+  const baselines = await allBaselines(ctx.userId);
+  const byExercise = Object.fromEntries(baselines.map(b => [b.exercise_id, b]));
+
+  for (const day of [1, 2, 3, 4, 5, 6]) {
+    screen.appendChild(el('div', { class: 'section-label', text: dayMeta(day).title }));
+    screen.appendChild(el('div', { class: 'list-group' }, exerciseIdsForDay(day)
+      .filter(id => exerciseType(id) !== 'SCREEN')
+      .map(id => {
+        const spec = EXERCISES[id];
+        const b = byExercise[id];
+        if (!b) return row(spec.name, 'Not yet tested', '—');
+        const tiers = exerciseTiers(id);
+        const valueText = tiers
+          ? `${tiers[Math.min(Math.max(Math.round(b.value ?? 0), 0), tiers.length - 1)]}${b.sub_value != null ? ` · ${b.sub_value}${spec.suffix || ''}` : ''}`
+          : `${b.value ?? ''}${spec.suffix || ''}`;
+        return row(spec.name, `Week ${b.week}`, valueText);
+      })
+    ));
+  }
 }
 
 function drawRestTimers(screen, ctx) {

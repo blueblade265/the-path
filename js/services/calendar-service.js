@@ -14,6 +14,7 @@
 // is a real day-of-week, derived from the date itself — never an offset from start_date.
 
 import { supabase } from '../supabase-client.js';
+import { clearAllBaselines } from './entries-repo.js';
 
 export async function getProgramSettings(userId) {
   const { data, error } = await supabase
@@ -35,17 +36,25 @@ export async function getWeekSkips(userId) {
   return data.map(r => r.after_week);
 }
 
-// One atomic-in-intent operation: set a new start date AND clear every existing skip,
-// because a skip recorded against the old timeline would misalign every future date
-// once the anchor moves. Per the user's explicit "Restart program" requirement — this
-// must never be exposed as two separate steps a caller could partially apply.
+// One atomic-in-intent operation: set a new start date, clear every existing skip (a
+// skip recorded against the old timeline would misalign every future date once the
+// anchor moves), clear every exercise's baseline, and cancel any pending retest — a
+// restart is a genuine "start over," so nothing should carry forward as a reference
+// point until a fresh Week 0 baseline is logged. The underlying training_entries rows
+// themselves are never touched — only is_baseline flags. Per the user's explicit
+// "Restart program" requirement — this must never be exposed as separate steps a
+// caller could partially apply.
 export async function restartProgram(userId, newStartDate) {
   const iso = toISODate(newStartDate);
   const { error: delErr } = await supabase.from('week_skips').delete().eq('user_id', userId);
   if (delErr) throw delErr;
+  await clearAllBaselines(userId);
   const { error: upErr } = await supabase
     .from('program_settings')
-    .upsert({ user_id: userId, start_date: iso, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    .upsert(
+      { user_id: userId, start_date: iso, pending_retest_week: null, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
   if (upErr) throw upErr;
 }
 

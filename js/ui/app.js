@@ -3,6 +3,7 @@ import { signInWithGoogle, signOut, onAuthStateChange } from '../supabase-client
 import { isApproved } from '../services/access-service.js';
 import { getProgramSettings, getWeekSkips, restartProgram, weekDayForDate } from '../services/calendar-service.js';
 import { getRestSettings } from '../services/settings-service.js';
+import { getPendingRetestWeek } from '../services/baseline-service.js';
 import { catchUpRestTimer } from './components/rest-timer.js';
 import { mountDetailSheet } from './detail-sheet.js';
 import { renderHome } from './tab-home.js';
@@ -86,6 +87,7 @@ async function renderApp(userId, email, startDate) {
   clear(root);
   const skips = await getWeekSkips(userId);
   const restSettings = await getRestSettings(userId);
+  const pendingRetestWeek = await getPendingRetestWeek(userId);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // null when the program hasn't started yet (a future start date) — fall back to
   // "week 0, start date's weekday" so tabs that default to ctx.todayWeekDay have
@@ -98,16 +100,21 @@ async function renderApp(userId, email, startDate) {
   catchUpRestTimer(userId);
 
   const ctx = {
-    userId, email, startDate, skips, todayWeekDay, restSettings,
+    userId, email, startDate, skips, todayWeekDay, restSettings, pendingRetestWeek,
     navigate: (tabKey, args) => { currentTab = tabKey; navArgs = args || null; drawTab(); },
     reloadCalendar: async () => {
       const s = await getProgramSettings(userId);
       ctx.startDate = s.startDate;
       ctx.skips = await getWeekSkips(userId);
       ctx.todayWeekDay = weekDayForDate(ctx.startDate, ctx.skips, today) || { week: 0, day: ctx.startDate.getDay() };
+      // Restarting the program cancels any pending retest — keep ctx in sync.
+      ctx.pendingRetestWeek = await getPendingRetestWeek(userId);
     },
     reloadRestSettings: async () => {
       ctx.restSettings = await getRestSettings(userId);
+    },
+    reloadPendingRetestWeek: async () => {
+      ctx.pendingRetestWeek = await getPendingRetestWeek(userId);
     }
   };
 
