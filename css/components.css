@@ -115,7 +115,7 @@
 .ladder-row__meta { flex: none; font: 400 10px/1 var(--font-mono); color: var(--text-ghost); }
 
 /* Calendar */
-.week-strip { display: flex; gap: 5px; }
+.week-strip { display: flex; gap: 5px; flex: 1; min-width: 0; }
 .day-tile { flex: 1; border-radius: var(--radius-md); padding: 9px 0 8px; text-align: center; cursor: pointer; background: var(--card-bg); border: 1px solid var(--card-border); }
 .day-tile--selected { background: rgba(209, 154, 46, .18); border-color: var(--amber); }
 .day-tile__dow { font: 600 9.5px/1 var(--font-mono); letter-spacing: .06em; color: var(--text-faint); }
