@@ -84,7 +84,9 @@ function drawBulkEntry(screen, ctx) {
       const spec = EXERCISES[id];
       const isTier = exerciseType(id) === 'TIER';
       const tiers = exerciseTiers(id);
-      const valueInput = el('input', { type: 'number', class: 'notes-field', style: 'margin-bottom:8px', placeholder: isTier ? 'Starting stage index (0-based)' : `Value (${spec.unit})` });
+      const valueInput = isTier
+        ? el('select', { class: 'notes-field', style: 'margin-bottom:8px' }, tiers.map((t, i) => el('option', { value: String(i), text: t })))
+        : el('input', { type: 'number', class: 'notes-field', style: 'margin-bottom:8px', placeholder: `Value (${spec.unit})` });
       const subInput = isTier ? el('input', { type: 'number', class: 'notes-field', style: 'margin-bottom:8px', placeholder: `Performance at that stage (${spec.unit})` }) : null;
       const cleanBox = el('input', { type: 'checkbox', checked: true });
       const notesInput = el('input', { type: 'text', class: 'notes-field', placeholder: 'Notes (optional)' });
@@ -92,7 +94,8 @@ function drawBulkEntry(screen, ctx) {
       inputs[id] = { valueInput, subInput, cleanBox, notesInput };
 
       formHost.appendChild(el('div', { class: 'card' }, [
-        el('div', { style: 'font:600 15px/1.2 var(--font-display);text-transform:uppercase;color:var(--text-primary);margin-bottom:9px', text: spec.name + (isTier ? ` (${tiers?.[0] ?? ''}…${tiers?.[tiers.length - 1] ?? ''})` : '') }),
+        el('div', { style: 'font:600 15px/1.2 var(--font-display);text-transform:uppercase;color:var(--text-primary);margin-bottom:9px', text: spec.name }),
+        isTier ? el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px', text: 'Starting stage' }) : null,
         valueInput,
         subInput,
         el('label', { style: 'display:flex;align-items:center;gap:8px;font:400 12px/1 var(--font-body);color:var(--text-secondary);margin-bottom:8px' }, [cleanBox, 'Clean']),

@@ -215,11 +215,16 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
     }
   }
 
-  box.appendChild(el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[tierIdx] || '' }));
+  const stageLabel = el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[tierIdx] || '' });
+  box.appendChild(stageLabel);
 
   if (isBaseline) {
     box.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px', text: 'Starting stage' }));
-    box.appendChild(stepper({ value: tierIdx, unitLabel: 'stage index', step: 1, min: 0, onChange: v => { tierIdx = Math.min(v, tiers.length - 1); } }));
+    const stageSelect = el('select', {
+      class: 'notes-field', style: 'margin-bottom:11px',
+      onChange: e => { tierIdx = Number(e.target.value); stageLabel.textContent = tiers[tierIdx]; }
+    }, tiers.map((t, i) => el('option', { value: String(i), selected: i === tierIdx ? true : undefined, text: t })));
+    box.appendChild(stageSelect);
   }
 
   box.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin:11px 0 8px', text: 'Performance at this stage' }));
