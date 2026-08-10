@@ -82,7 +82,8 @@
 .stepper { display: flex; align-items: stretch; gap: 9px; margin-bottom: 11px; }
 .stepper__btn { flex: none; width: 58px; border-radius: var(--radius-md); background: var(--card-border-alt); border: 1px solid var(--card-border); display: flex; align-items: center; justify-content: center; font: 400 28px/1 var(--font-body); color: var(--text-primary); cursor: pointer; user-select: none; }
 .stepper__value-box { flex: 1; border-radius: var(--radius-md); background: var(--card-bg-alt); border: 1px solid var(--card-border-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0; }
-.stepper__value { font: 600 38px/1 var(--font-display); color: var(--text-primary); }
+.stepper__value { font: 600 38px/1 var(--font-display); color: var(--text-primary); background: none; border: none; outline: none; text-align: center; width: 100%; padding: 0; -moz-appearance: textfield; }
+.stepper__value::-webkit-outer-spin-button, .stepper__value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper__unit { font: 500 9.5px/1 var(--font-mono); letter-spacing: .13em; text-transform: uppercase; color: var(--text-muted); margin-top: 6px; }
 
 .form-gate { display: flex; align-items: center; gap: 11px; padding: 13px; border-radius: var(--radius-md); cursor: pointer; margin-bottom: 13px; background: var(--card-bg-alt); border: 1px solid var(--card-border); }
