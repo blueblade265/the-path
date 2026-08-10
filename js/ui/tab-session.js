@@ -195,21 +195,37 @@ function buildFormGate(initial, subText, onToggle) {
 
 function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
   const box = el('div');
-  const sessionSets = existing ? [existing.value] : [];
+  const isLive = state.ds === 'today';
   let cleanState = existing ? existing.form_clean : true;
   let draftValue = existing ? existing.value : spec.step;
 
-  const chipsHost = el('div');
   const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
-
   const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
   notes.value = existing?.notes || '';
-
   const step = stepper({
     value: draftValue, unitLabel: spec.unit, step: spec.step, min: 0,
     onChange: v => { draftValue = v; }
   });
 
+  if (!isLive) {
+    // Editing/backfilling a past day: one persisted value (schema stores the last
+    // completed set only, not per-set history), so this is a plain edit-and-save form —
+    // no set-by-set chips (nothing to pick between), no rest timer (nothing to rest
+    // from — that's only meaningful mid-workout via Start Session on today).
+    const cta = el('button', { class: 'btn btn--primary', text: 'Save' });
+    cta.addEventListener('click', async () => {
+      await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: draftValue, subValue: null, formClean: cleanState, notes: notes.value });
+      cta.textContent = 'Saved ✓';
+    });
+    box.appendChild(step);
+    box.appendChild(gate);
+    box.appendChild(notes);
+    box.appendChild(cta);
+    return box;
+  }
+
+  const sessionSets = existing ? [existing.value] : [];
+  const chipsHost = el('div');
   const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
   redrawChips();
 
@@ -235,12 +251,19 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
   const box = el('div');
   const tiers = exerciseTiers(id) || [];
   const isBaseline = state.week === 0;
+  const isLive = state.ds === 'today';
+  // Live logging shows the stage as a read-only, engine-computed label — the whole
+  // point is you don't get to just declare a different stage than the algorithm put
+  // you at. Editing/backfilling a past entry is different: it's a correction to the
+  // historical record (which the engine doesn't even read the stage/value from for
+  // non-baseline weeks — only form_clean matters there), so it stays editable.
+  const stageEditable = isBaseline || !isLive;
 
   let tierIdx = existing ? Math.round(existing.value ?? 0) : 0;
   let subValue = existing ? existing.sub_value : 0;
   let cleanState = existing ? existing.form_clean : true;
 
-  if (!isBaseline) {
+  if (!isBaseline && !existing) {
     // The CURRENT baseline, not literally week 0 — after a completed retest, the
     // baseline may be a later week, and the current stage must reflect that, not the
     // pre-retest starting point.
@@ -251,8 +274,8 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
   const stageLabel = el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[tierIdx] || '' });
   box.appendChild(stageLabel);
 
-  if (isBaseline) {
-    box.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px', text: 'Starting stage' }));
+  if (stageEditable) {
+    box.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px', text: isBaseline ? 'Starting stage' : 'Stage' }));
     const stageSelect = el('select', {
       class: 'notes-field', style: 'margin-bottom:11px',
       onChange: e => { tierIdx = Number(e.target.value); stageLabel.textContent = tiers[tierIdx]; }
@@ -269,12 +292,16 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
   const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
   notes.value = existing?.notes || '';
 
-  const cta = el('button', { class: 'btn btn--primary', text: logged(existing) ? 'Logged ✓' : 'Log this week' });
+  const cta = el('button', { class: 'btn btn--primary', text: isLive ? (logged(existing) ? 'Logged ✓' : 'Log this week') : 'Save' });
   cta.addEventListener('click', async () => {
     await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue, formClean: cleanState, notes: notes.value });
-    cta.textContent = 'Logged ✓';
-    const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
-    box.appendChild(node);
+    if (isLive) {
+      cta.textContent = 'Logged ✓';
+      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+      box.appendChild(node);
+    } else {
+      cta.textContent = 'Saved ✓';
+    }
   });
 
   box.appendChild(gate);
