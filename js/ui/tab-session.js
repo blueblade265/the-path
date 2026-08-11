@@ -156,18 +156,28 @@ async function renderCard(id, index, total, state, ctx, redraw) {
     return card;
   }
 
-  const holdSeconds = type === 'HOLD_TIME' ? parsePrescribedSeconds(state.rx?.text) : null;
+  // Applies to flat HOLD_TIME exercises AND staged (TIER) exercises whose performance
+  // is itself a time (subUnit:'sec') — RULES.TIER already prescribes the same "SETS ×
+  // Ns" structure for those (e.g. Front Lever's Rx text is "Tuck — 3 × 15s"), so the
+  // physical protocol is identical; only how the result gets logged differs (see
+  // buildHoldTimeFlow). Which stage you're on has no bearing on the timer mechanics —
+  // it's purely which number gets stored alongside the seconds. The regex only matches
+  // an "Ns" tail, so it naturally excludes rep-based TIER exercises (pistol-squat,
+  // dragon-flag, etc.) without needing to check subUnit explicitly.
+  const holdSeconds = (type === 'HOLD_TIME' || type === 'TIER') ? parsePrescribedSeconds(state.rx?.text) : null;
 
   if (isScreen) {
     card.appendChild(buildScreenLogger(id, spec, state, existing, ctx, redraw));
   } else if (inRetestMode) {
     card.appendChild(await buildRetestLogger(id, spec, state, existing, ctx));
-  } else if (type === 'TIER') {
-    card.appendChild(await buildTierLogger(id, spec, state, existing, ctx, redraw));
   } else if (state.ds === 'today' && holdSeconds != null) {
     // Live, a real target exists to count down to — no manual stepper, the timers do
-    // the logging themselves.
-    card.appendChild(buildHoldTimeFlow(id, spec, state, existing, ctx, holdSeconds));
+    // the logging themselves. For TIER this only fires once a baseline already exists
+    // (week 0 / no-baseline-yet has no computed Rx to parse a target from, so it falls
+    // through to buildTierLogger's manual stage-picker below, same as before).
+    card.appendChild(await buildHoldTimeFlow(id, spec, state, existing, ctx, holdSeconds, type));
+  } else if (type === 'TIER') {
+    card.appendChild(await buildTierLogger(id, spec, state, existing, ctx, redraw));
   } else {
     card.appendChild(buildNumericLogger(id, spec, state, existing, ctx, redraw));
   }
@@ -267,15 +277,31 @@ function parsePrescribedSeconds(rxText) {
 // prescribed seconds -> chime -> rest timer -> chime, then back to Start set N+1. No
 // manual number entry — a completed hold IS the prescribed target by definition of the
 // timer completing, so each one logs itself; "Form held throughout" is the only manual
-// judgment left, exactly as specified.
-function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSeconds) {
+// judgment left, exactly as specified. Covers both flat HOLD_TIME exercises (logs
+// value=seconds) and staged (TIER) exercises whose performance is a time (logs
+// value=current stage index, sub_value=seconds) — same timer mechanics either way,
+// which stage you're on only changes which field the seconds land in.
+async function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSeconds, type) {
   const box = el('div');
+  const tiers = type === 'TIER' ? exerciseTiers(id) : null;
+  let stageIdx = 0;
+  if (tiers) {
+    if (existing) stageIdx = Math.round(existing.value ?? 0);
+    else {
+      const baseline = await getBaseline(ctx.userId, id);
+      stageIdx = baseline?.value != null ? Math.min(Math.max(Math.round(baseline.value), 0), tiers.length - 1) : 0;
+    }
+    box.appendChild(el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[stageIdx] || '' }));
+  }
+
   let cleanState = existing ? existing.form_clean : true;
   const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
   const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
   notes.value = existing?.notes || '';
 
-  const sessionSets = existing ? [existing.value] : [];
+  // Chips always show seconds held — the physically meaningful number — regardless of
+  // whether it's stored as `value` (flat) or `sub_value` (TIER) in the DB.
+  const sessionSets = existing ? [tiers ? existing.sub_value : existing.value] : [];
   const chipsHost = el('div');
   const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
   redrawChips();
@@ -314,7 +340,12 @@ function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSeconds) {
 
   async function onHoldComplete() {
     playChime();
-    await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: prescribedSeconds, subValue: null, formClean: cleanState, notes: notes.value });
+    await logEntry({
+      userId: ctx.userId, week: state.week, day: state.day, exerciseId: id,
+      value: tiers ? stageIdx : prescribedSeconds,
+      subValue: tiers ? prescribedSeconds : null,
+      formClean: cleanState, notes: notes.value
+    });
     if (sessionSets.length < 3) sessionSets.push(prescribedSeconds); else sessionSets[2] = prescribedSeconds;
     redrawChips();
     clear(phaseHost);
