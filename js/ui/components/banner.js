@@ -1,6 +1,6 @@
 import { el } from '../dom.js';
 
-// variant: 'missed' | 'readonly' | 'provisional'
+// variant: 'missed' | 'readonly' | 'provisional' | 'retest' | 'active'
 export function banner({ variant, text, actionLabel, onAction }) {
   const children = [el('div', { text })];
   if (actionLabel && onAction) {

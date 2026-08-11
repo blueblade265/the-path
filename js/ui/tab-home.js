@@ -2,6 +2,7 @@ import { el, clear } from './dom.js';
 import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { loadInsights, forecastText } from '../services/insights-service.js';
 import { weekDayForDate } from '../services/calendar-service.js';
+import { sessionStatusFor, startSession } from '../services/session-state.js';
 import { openDetail } from './detail-sheet.js';
 
 const DOW_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -95,9 +96,13 @@ export async function renderHome(container, ctx) {
   ]));
 
   const todayIds = exerciseIdsForDay(todayDow);
-  const doneN = todayIds.filter(id => entries.some(e => e.week === ctx.todayWeekDay.week && e.day === ctx.todayWeekDay.day && e.exercise_id === id)).length;
-  const ctaText = doneN === 0 ? 'Start session' : (doneN >= todayIds.length ? 'Review session' : `Continue — ${todayIds.length - doneN} left`);
   const meta = dayMeta(todayDow);
+  // Session status (session-state.js), not raw entry counts, is the source of truth for
+  // "where you are in today's workout" — a session can be active with nothing logged
+  // yet, or completed with everything logged, and only session-state.js actually knows
+  // which.
+  const sessionStatus = sessionStatusFor(ctx.userId, ctx.todayWeekDay.week, ctx.todayWeekDay.day);
+  const ctaText = sessionStatus === 'completed' ? 'Review session' : sessionStatus === 'active' ? 'Continue session' : 'Start session';
 
   screen.appendChild(el('div', { class: 'card card--accent' }, [
     el('div', { style: 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px' }, [
@@ -107,7 +112,17 @@ export async function renderHome(container, ctx) {
         el('div', { style: 'font:400 12px/1.4 var(--font-body);color:var(--text-secondary);margin-top:5px', text: `${todayIds.length} movement${todayIds.length === 1 ? '' : 's'}` })
       ])
     ]),
-    el('button', { class: 'btn btn--primary', text: ctaText, onClick: () => ctx.navigate('session') })
+    el('button', {
+      class: 'btn btn--primary', text: ctaText,
+      onClick: () => {
+        // startSession is idempotent (returns the existing session untouched if one's
+        // already active or completed, only creates one when there's none) — safe to
+        // call unconditionally. One tap lands you straight in an active session, not an
+        // intermediate screen asking you to start it again.
+        startSession(ctx.userId, ctx.todayWeekDay.week, ctx.todayWeekDay.day);
+        ctx.navigate('session');
+      }
+    })
   ]));
 }
 

@@ -4,7 +4,7 @@ import { isApproved } from '../services/access-service.js';
 import { getProgramSettings, getWeekSkips, restartProgram, weekDayForDate } from '../services/calendar-service.js';
 import { getRestSettings } from '../services/settings-service.js';
 import { getPendingRetestWeek } from '../services/baseline-service.js';
-import { catchUpRestTimer } from './components/rest-timer.js';
+import { catchUpActiveSession } from '../services/session-state.js';
 import { mountDetailSheet } from './detail-sheet.js';
 import { renderHome } from './tab-home.js';
 import { renderSession } from './tab-session.js';
@@ -120,10 +120,11 @@ async function renderApp(userId, email, startDate, gen) {
   // something sane to render rather than crashing; there's nothing to log yet either way.
   const todayWeekDay = weekDayForDate(startDate, skips, today) || { week: 0, day: startDate.getDay() };
 
-  // Catches a rest timer that was already counting down (and possibly already
-  // finished) before the app was closed/reloaded, e.g. the phone was locked through
-  // the whole rest period — chimes immediately if it had already elapsed.
-  catchUpRestTimer(userId);
+  // Catches an active session's timer phase that had already elapsed before the app
+  // was closed/reloaded, e.g. the phone was locked through the whole rest/hold period —
+  // chimes immediately if so. Doesn't advance the state machine itself; tab-session.js
+  // reconstructs the real phase live from the same stored state whenever Session opens.
+  catchUpActiveSession(userId, todayWeekDay.week, todayWeekDay.day);
 
   clear(root);
 

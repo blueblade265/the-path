@@ -5,10 +5,15 @@ import { entriesForDay, logEntry, historyForExercise, getBaseline } from '../ser
 import { prescriptionsForDay } from '../services/rx-service.js';
 import { dateForWeekDay } from '../services/calendar-service.js';
 import { logRetestEntry } from '../services/baseline-service.js';
+import {
+  sessionStatusFor, loadSession, startSession, completeSession,
+  getExerciseState, updateExercise, addCompletedSet, setPhase, clearPhase
+} from '../services/session-state.js';
 import { stepper } from './components/stepper.js';
 import { setChips } from './components/set-chips.js';
-import { restTimer, playChime } from './components/rest-timer.js';
+import { restTimer } from './components/rest-timer.js';
 import { phaseTimer } from './components/phase-timer.js';
+import { playChime } from '../lib/chime.js';
 import { banner } from './components/banner.js';
 import { openDetail } from './detail-sheet.js';
 
@@ -18,7 +23,19 @@ function restSecondsFor(id, ctx) {
   return exerciseType(id) === 'LOAD' ? ctx.restSettings.load : ctx.restSettings.default;
 }
 
+// This app has no unmount lifecycle — navigating to another tab just clears/rebuilds
+// the DOM, it never stops a live timer's setInterval. That was harmless when a stray
+// orphaned rest timer just re-chimed into detached DOM; now that timers drive real
+// logEntry calls and session-state advancement, an orphaned interval from a previous
+// mount plus a freshly-reconstructed one on remount would double-log a set and
+// double-chime. Every phaseTimer/restTimer constructed anywhere in this file pushes its
+// stop() here; renderSession sweeps and clears this array before building anything, so
+// there's provably at most one live timer per phase at a time.
+let liveStops = [];
+
 export async function renderSession(container, ctx, target) {
+  liveStops.forEach(fn => fn());
+  liveStops = [];
   clear(container);
   const wrap = el('div', { style: 'display:flex;flex-direction:column;flex:1;min-height:0' });
   container.appendChild(wrap);
@@ -41,14 +58,32 @@ export async function renderSession(container, ctx, target) {
   const missed = ds === 'past' && !meta.rest && dayEntries.length === 0;
   let unlocked = false;
 
+  // Only "today" has a live-session concept at all — past/future days never touch
+  // session-state.js, so effectiveDs collapses back to plain `ds` for them and nothing
+  // about how they render changes.
+  let sessionStatus = ds === 'today' ? sessionStatusFor(ctx.userId, week, day) : 'none';
+  let session = ds === 'today' ? loadSession(ctx.userId, week, day) : null;
+  // A completed today-session renders exactly like a genuinely past logged day — same
+  // read-only-with-Edit treatment, reusing that code path rather than a parallel one.
+  let effectiveDs = (ds === 'today' && sessionStatus === 'completed') ? 'past' : ds;
+
   const header = el('div', { style: 'flex:none;padding:4px 20px 12px;border-bottom:1px solid var(--card-border)' });
   const list = el('div', { class: 'screen', style: 'flex:1' });
   wrap.appendChild(header);
   wrap.appendChild(list);
 
+  async function refresh() {
+    sessionStatus = ds === 'today' ? sessionStatusFor(ctx.userId, week, day) : 'none';
+    session = ds === 'today' ? loadSession(ctx.userId, week, day) : null;
+    effectiveDs = (ds === 'today' && sessionStatus === 'completed') ? 'past' : ds;
+    drawHeader();
+    await drawList();
+  }
+
   function drawHeader() {
     clear(header);
-    const kickerText = `${meta.title} · ${ds === 'today' ? 'Today' : (missed ? 'Backfill' : (ds === 'past' ? 'Logged' : 'Upcoming'))}`;
+    const notStarted = ds === 'today' && sessionStatus === 'none';
+    const kickerText = `${meta.title} · ${ds === 'today' ? (notStarted ? 'Not started' : 'Today') : (missed ? 'Backfill' : (effectiveDs === 'past' ? 'Logged' : 'Upcoming'))}`;
     header.appendChild(el('div', {}, [
       el('div', { style: `font:500 9.5px/1 var(--font-mono);letter-spacing:.15em;text-transform:uppercase;color:${ds === 'today' ? 'var(--amber)' : (missed ? 'var(--clay-hi)' : 'var(--text-muted)')};margin-bottom:7px`, text: kickerText }),
       el('div', { style: 'font:600 23px/1.05 var(--font-display);text-transform:uppercase;color:var(--text-primary)', text: meta.title })
@@ -56,14 +91,37 @@ export async function renderSession(container, ctx, target) {
     if (isRetestWeek && !meta.rest) {
       header.appendChild(banner({ variant: 'retest', text: 'Retest week. Results logged here replace your baselines — the engine starts fresh from what you hit.' }));
     }
-    if (ds !== 'today') {
-      const variant = missed ? 'missed' : (ds === 'past' ? 'readonly' : 'provisional');
+    if (notStarted && !meta.rest) {
+      header.appendChild(banner({
+        variant: 'provisional',
+        text: "Not started yet — tap Start Session to begin today's workout.",
+        actionLabel: 'Start Session',
+        onAction: async () => { startSession(ctx.userId, week, day); await refresh(); }
+      }));
+    }
+    if (ds === 'today' && sessionStatus === 'active' && !meta.rest) {
+      header.appendChild(banner({
+        variant: 'active',
+        text: 'Session in progress.',
+        actionLabel: 'Complete Session',
+        onAction: async () => {
+          const allLogged = ids.every(id => (session?.exercises?.[id]?.setsCompleted?.length > 0) || dayEntries.some(e => e.exercise_id === id));
+          if (!allLogged && !confirm("Some exercises don't look logged yet. Complete session anyway?")) return;
+          await completeSession(ctx.userId, week, day, args => logEntry(args));
+          await refresh();
+        }
+      }));
+    }
+    if (effectiveDs !== 'today') {
+      const variant = missed ? 'missed' : (effectiveDs === 'past' ? 'readonly' : 'provisional');
       const text = missed
         ? 'You missed this day — log it now and the engine catches up.'
-        : (ds === 'past'
-          ? (unlocked ? 'Editing a past result. It re-runs the engine for later weeks.' : 'Read-only. Targets shown are what you were given that day.')
+        : (effectiveDs === 'past'
+          ? (unlocked
+            ? 'Editing a past result. It re-runs the engine for later weeks.'
+            : (ds === 'today' ? 'Session complete. Edit unlocks it.' : 'Read-only. Targets shown are what you were given that day.'))
           : 'Provisional. These move as you log between now and then.');
-      const showEdit = ds === 'past' && !missed && !unlocked;
+      const showEdit = effectiveDs === 'past' && !missed && !unlocked;
       header.appendChild(banner({
         variant, text,
         actionLabel: showEdit ? 'Edit' : null,
@@ -78,16 +136,18 @@ export async function renderSession(container, ctx, target) {
       list.appendChild(el('div', { class: 'card', text: 'Nothing scheduled.' }));
       return;
     }
-    const canLog = ds === 'today' || missed || (ds === 'past' && unlocked);
-    // Computed even for future days: "what would be prescribed based on everything
-    // logged so far" — exactly what "provisional" means in the mockup's own design.
+    const notStarted = ds === 'today' && sessionStatus === 'none';
+    const canLog = (effectiveDs === 'today' && sessionStatus === 'active') || missed || (effectiveDs === 'past' && unlocked);
+    // Computed even for future days (and a not-yet-started today): "what would be
+    // prescribed based on everything logged so far" — exactly what "provisional" means
+    // in the mockup's own design.
     const rx = await prescriptionsForDay(ctx.userId, ids, week);
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const existing = dayEntries.find(e => e.exercise_id === id);
       const isLastExercise = i === ids.length - 1;
-      list.appendChild(await renderCard(id, i, ids.length, { week, day, ds, canLog, missed, isRetestWeek, isLastExercise, rx: rx[id], existing }, ctx, drawList));
+      list.appendChild(await renderCard(id, i, ids.length, { week, day, ds: effectiveDs, canLog, missed, notStarted, isRetestWeek, isLastExercise, rx: rx[id], existing, session }, ctx, drawList));
     }
   }
 
@@ -151,7 +211,7 @@ async function renderCard(id, index, total, state, ctx, redraw) {
 
   if (!state.canLog) {
     card.appendChild(el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px;border-radius:10px;background:var(--card-bg-alt);border:1px dashed var(--card-border)' }, [
-      el('div', { style: 'font:400 12px/1.45 var(--font-mono);color:var(--text-muted)', text: logged ? `Logged: ${formatEntryValue(id, existing) ?? '—'}` : 'Opens on the day.' })
+      el('div', { style: 'font:400 12px/1.45 var(--font-mono);color:var(--text-muted)', text: logged ? `Logged: ${formatEntryValue(id, existing) ?? '—'}` : (state.notStarted ? 'Start the session above to begin logging.' : 'Opens on the day.') })
     ]));
     return card;
   }
@@ -174,7 +234,10 @@ async function renderCard(id, index, total, state, ctx, redraw) {
     // Live, a real target exists to count down to — no manual stepper, the timers do
     // the logging themselves. For TIER this only fires once a baseline already exists
     // (week 0 / no-baseline-yet has no computed Rx to parse a target from, so it falls
-    // through to buildTierLogger's manual stage-picker below, same as before).
+    // through to buildTierLogger's manual stage-picker below, same as before). Once a
+    // session is completed, state.ds here is 'past' (effectiveDs), so this naturally
+    // stops applying and falls through to the plain edit form below, same as any other
+    // past day.
     card.appendChild(await buildHoldTimeFlow(id, spec, state, existing, ctx, holdSeconds, type));
   } else if (type === 'TIER') {
     card.appendChild(await buildTierLogger(id, spec, state, existing, ctx, redraw));
@@ -209,22 +272,19 @@ function buildFormGate(initial, subText, onToggle) {
 function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
   const box = el('div');
   const isLive = state.ds === 'today';
-  let cleanState = existing ? existing.form_clean : true;
-  let draftValue = existing ? existing.value : spec.step;
-
-  const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
-  const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
-  notes.value = existing?.notes || '';
-  const step = stepper({
-    value: draftValue, unitLabel: spec.unit, step: spec.step, min: 0,
-    onChange: v => { draftValue = v; }
-  });
 
   if (!isLive) {
-    // Editing/backfilling a past day: one persisted value (schema stores the last
+    // Editing/backfilling a past day (including a completed-today session, which
+    // renders here too via effectiveDs): one persisted value (schema stores the last
     // completed set only, not per-set history), so this is a plain edit-and-save form —
     // no set-by-set chips (nothing to pick between), no rest timer (nothing to rest
-    // from — that's only meaningful mid-workout via Start Session on today).
+    // from — that's only meaningful during a live active session).
+    let cleanState = existing ? existing.form_clean : true;
+    let draftValue = existing ? existing.value : spec.step;
+    const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
+    const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
+    notes.value = existing?.notes || '';
+    const step = stepper({ value: draftValue, unitLabel: spec.unit, step: spec.step, min: 0, onChange: v => { draftValue = v; } });
     const cta = el('button', { class: 'btn btn--primary', text: 'Save' });
     cta.addEventListener('click', async () => {
       await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: draftValue, subValue: null, formClean: cleanState, notes: notes.value });
@@ -237,21 +297,55 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
     return box;
   }
 
-  const sessionSets = existing ? [existing.value] : [];
+  // Live, active session: seed from session-state.js (falls back to the DB row if the
+  // session has nothing yet for this exercise), and mirror every mutation back to it —
+  // this is what survives a reload or switching to another in-app tab and back.
+  const exState = getExerciseState(state.session, id, existing);
+  let cleanState = exState.formClean;
+  let draftValue = existing ? existing.value : spec.step;
+
+  const gate = buildFormGate(cleanState, null, v => {
+    cleanState = v;
+    updateExercise(ctx.userId, state.week, state.day, id, { formClean: v });
+  });
+  const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
+  notes.value = exState.notes;
+  notes.addEventListener('blur', () => updateExercise(ctx.userId, state.week, state.day, id, { notes: notes.value }));
+  const step = stepper({
+    value: draftValue, unitLabel: spec.unit, step: spec.step, min: 0,
+    onChange: v => { draftValue = v; }
+  });
+
+  let sessionSets = exState.setsCompleted.map(s => s.value);
   const chipsHost = el('div');
   const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
   redrawChips();
 
-  const cta = el('button', { class: 'btn btn--primary', text: logged(existing) ? 'Logged ✓' : `Log set ${sessionSets.length + 1}` });
+  const cta = el('button', { class: 'btn btn--primary' });
+  const updateCta = () => { cta.textContent = sessionSets.length >= 3 ? 'Logged ✓' : `Log set ${sessionSets.length + 1}`; };
+  updateCta();
   cta.addEventListener('click', async () => {
-    await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: draftValue, subValue: null, formClean: cleanState, notes: notes.value });
-    if (sessionSets.length < 3) sessionSets.push(draftValue); else sessionSets[2] = draftValue;
+    try {
+      await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: draftValue, subValue: null, formClean: cleanState, notes: notes.value });
+    } catch (err) {
+      // Optimistic local write still happens below regardless — session-state.js is
+      // the record of what actually happened this session, and Complete Session's
+      // reconciliation pass is the backstop for a dropped write like this one.
+      console.error(`logEntry failed for ${id}, relying on session-state + Complete Session reconciliation`, err);
+    }
+    const updated = addCompletedSet(ctx.userId, state.week, state.day, id, { value: draftValue });
+    sessionSets = updated.exercises[id].setsCompleted.map(s => s.value);
     redrawChips();
-    cta.textContent = 'Logged ✓';
+    updateCta();
     // No rest to take after the very last set of the very last exercise — the workout's over.
     const isFinalSetOfWorkout = state.isLastExercise && sessionSets.length >= 3;
     if (!isFinalSetOfWorkout) {
-      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+      const { node, stop } = restTimer({
+        seconds: restSecondsFor(id, ctx),
+        onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'rest', endAt, setNumber: sessionSets.length }),
+        onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); node.remove(); }
+      });
+      liveStops.push(stop);
       box.appendChild(node);
     }
   });
@@ -261,6 +355,18 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
   box.appendChild(gate);
   box.appendChild(notes);
   box.appendChild(cta);
+
+  // Resume an in-flight rest phase — came back from another tab/app mid-rest.
+  if (exState.phase?.type === 'rest') {
+    const { node, stop } = restTimer({
+      seconds: restSecondsFor(id, ctx),
+      resumeEndAt: exState.phase.endAt,
+      onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); node.remove(); }
+    });
+    liveStops.push(stop);
+    box.appendChild(node);
+  }
+
   return box;
 }
 
@@ -281,9 +387,17 @@ function parsePrescribedSeconds(rxText) {
 // value=seconds) and staged (TIER) exercises whose performance is a time (logs
 // value=current stage index, sub_value=seconds) — same timer mechanics either way,
 // which stage you're on only changes which field the seconds land in.
+//
+// Every phase (countdown/hold/rest) persists its endAt to session-state.js the instant
+// it starts, and is reconstructed from there at mount — this is what makes "phone
+// locks / switch tabs / come back and the timer is still running, completing, firing
+// the next timer" actually work, not just the phone-lock case rest-timer.js already
+// handled.
 async function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSeconds, type) {
   const box = el('div');
   const tiers = type === 'TIER' ? exerciseTiers(id) : null;
+  const exState = getExerciseState(state.session, id, existing);
+
   let stageIdx = 0;
   if (tiers) {
     if (existing) stageIdx = Math.round(existing.value ?? 0);
@@ -294,14 +408,18 @@ async function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSecon
     box.appendChild(el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[stageIdx] || '' }));
   }
 
-  let cleanState = existing ? existing.form_clean : true;
-  const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
+  let cleanState = exState.formClean;
+  const gate = buildFormGate(cleanState, null, v => {
+    cleanState = v;
+    updateExercise(ctx.userId, state.week, state.day, id, { formClean: v });
+  });
   const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
-  notes.value = existing?.notes || '';
+  notes.value = exState.notes;
+  notes.addEventListener('blur', () => updateExercise(ctx.userId, state.week, state.day, id, { notes: notes.value }));
 
   // Chips always show seconds held — the physically meaningful number — regardless of
   // whether it's stored as `value` (flat) or `sub_value` (TIER) in the DB.
-  const sessionSets = existing ? [tiers ? existing.sub_value : existing.value] : [];
+  let sessionSets = exState.setsCompleted.map(s => tiers ? s.subValue : s.value);
   const chipsHost = el('div');
   const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
   redrawChips();
@@ -319,47 +437,79 @@ async function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSecon
     const done = sessionSets.length >= 3;
     const cta = el('button', { class: 'btn btn--primary', text: done ? 'Logged ✓' : `Start set ${Math.min(sessionSets.length + 1, 3)}` });
     if (done) cta.setAttribute('disabled', '');
-    else cta.addEventListener('click', startCountdown);
+    else cta.addEventListener('click', () => startCountdown());
     ctaHost.appendChild(cta);
   }
 
-  function startCountdown() {
+  function startCountdown(resumeEndAt) {
     clear(ctaHost);
     clear(phaseHost);
-    const { node, stop } = phaseTimer({ label: 'Get ready', seconds: 5, accent: 'var(--amber)', onDone: () => { playChime(); startHold(); } });
+    const { node, stop } = phaseTimer({
+      label: 'Get ready', seconds: 5, accent: 'var(--amber)', resumeEndAt,
+      onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'countdown', endAt, setNumber: sessionSets.length + 1 }),
+      onDone: () => { playChime(); startHold(); }
+    });
+    liveStops.push(stop);
     phaseHost.appendChild(node);
-    phaseHost.appendChild(cancelLink(() => { stop(); drawIdle(); }));
+    phaseHost.appendChild(cancelLink(() => { stop(); clearPhase(ctx.userId, state.week, state.day, id); drawIdle(); }));
   }
 
-  function startHold() {
+  function startHold(resumeEndAt) {
     clear(phaseHost);
-    const { node, stop } = phaseTimer({ label: 'Hold', seconds: prescribedSeconds, accent: 'var(--moss)', onDone: onHoldComplete });
+    const { node, stop } = phaseTimer({
+      label: 'Hold', seconds: prescribedSeconds, accent: 'var(--moss)', resumeEndAt,
+      onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'hold', endAt, setNumber: sessionSets.length + 1 }),
+      onDone: onHoldComplete
+    });
+    liveStops.push(stop);
     phaseHost.appendChild(node);
-    phaseHost.appendChild(cancelLink(() => { stop(); drawIdle(); }));
+    phaseHost.appendChild(cancelLink(() => { stop(); clearPhase(ctx.userId, state.week, state.day, id); drawIdle(); }));
+  }
+
+  function startRest(resumeEndAt) {
+    clear(phaseHost);
+    const { node, stop } = restTimer({
+      seconds: restSecondsFor(id, ctx), resumeEndAt,
+      onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'rest', endAt, setNumber: sessionSets.length }),
+      onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); drawIdle(); }
+    });
+    liveStops.push(stop);
+    phaseHost.appendChild(node);
   }
 
   async function onHoldComplete() {
     playChime();
-    await logEntry({
-      userId: ctx.userId, week: state.week, day: state.day, exerciseId: id,
+    try {
+      await logEntry({
+        userId: ctx.userId, week: state.week, day: state.day, exerciseId: id,
+        value: tiers ? stageIdx : prescribedSeconds,
+        subValue: tiers ? prescribedSeconds : null,
+        formClean: cleanState, notes: notes.value
+      });
+    } catch (err) {
+      console.error(`logEntry failed for ${id}, relying on session-state + Complete Session reconciliation`, err);
+    }
+    const updated = addCompletedSet(ctx.userId, state.week, state.day, id, {
       value: tiers ? stageIdx : prescribedSeconds,
-      subValue: tiers ? prescribedSeconds : null,
-      formClean: cleanState, notes: notes.value
+      subValue: tiers ? prescribedSeconds : null
     });
-    if (sessionSets.length < 3) sessionSets.push(prescribedSeconds); else sessionSets[2] = prescribedSeconds;
+    sessionSets = updated.exercises[id].setsCompleted.map(s => tiers ? s.subValue : s.value);
     redrawChips();
     clear(phaseHost);
     // No rest to take after the very last set of the very last exercise — the workout's over.
     const isFinalSetOfWorkout = state.isLastExercise && sessionSets.length >= 3;
-    if (isFinalSetOfWorkout) {
-      drawIdle();
-    } else {
-      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => { clear(phaseHost); drawIdle(); });
-      phaseHost.appendChild(node);
-    }
+    if (isFinalSetOfWorkout) drawIdle();
+    else startRest();
   }
 
-  drawIdle();
+  // Reconstruct whatever was in flight (countdown/hold/rest) instead of starting idle —
+  // this is the concrete mechanism for "come back and the live session is running, all
+  // timers still working, completing, firing next timer."
+  const phase = exState.phase;
+  if (phase?.type === 'countdown') startCountdown(phase.endAt);
+  else if (phase?.type === 'hold') startHold(phase.endAt);
+  else if (phase?.type === 'rest') { clear(ctaHost); startRest(phase.endAt); }
+  else drawIdle();
 
   box.appendChild(phaseHost);
   box.appendChild(chipsHost);
@@ -383,7 +533,6 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
 
   let tierIdx = existing ? Math.round(existing.value ?? 0) : 0;
   let subValue = existing ? existing.sub_value : 0;
-  let cleanState = existing ? existing.form_clean : true;
 
   if (!isBaseline && !existing) {
     // The CURRENT baseline, not literally week 0 — after a completed retest, the
@@ -408,20 +557,39 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
   box.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin:11px 0 8px', text: 'Performance at this stage' }));
   box.appendChild(stepper({ value: subValue || 0, unitLabel: spec.unit, step: spec.step, min: 0, onChange: v => { subValue = v; } }));
 
-  const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
+  // No multi-set structure here (one save per week), so — unlike the two builders
+  // above — there's no chip progress to lose. Still wired to session-state.js for the
+  // gate/notes so a stray reload doesn't lose an in-progress toggle/notes edit.
+  const exState = getExerciseState(state.session, id, existing);
+  let cleanState = exState.formClean;
+  const gate = buildFormGate(cleanState, null, v => {
+    cleanState = v;
+    if (isLive) updateExercise(ctx.userId, state.week, state.day, id, { formClean: v });
+  });
   gate.style.marginTop = '13px';
 
   const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
-  notes.value = existing?.notes || '';
+  notes.value = exState.notes;
+  if (isLive) notes.addEventListener('blur', () => updateExercise(ctx.userId, state.week, state.day, id, { notes: notes.value }));
 
   const cta = el('button', { class: 'btn btn--primary', text: isLive ? (logged(existing) ? 'Logged ✓' : 'Log this week') : 'Save' });
   cta.addEventListener('click', async () => {
-    await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue, formClean: cleanState, notes: notes.value });
+    try {
+      await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue, formClean: cleanState, notes: notes.value });
+    } catch (err) {
+      if (isLive) console.error(`logEntry failed for ${id}, relying on Complete Session reconciliation`, err);
+      else throw err; // past-day edit has no session-state.js backstop, surface it
+    }
     if (isLive) {
       cta.textContent = 'Logged ✓';
       // No rest to take after the very last exercise of the workout.
       if (!state.isLastExercise) {
-        const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => node.remove());
+        const { node, stop } = restTimer({
+          seconds: restSecondsFor(id, ctx),
+          onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'rest', endAt, setNumber: 1 }),
+          onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); node.remove(); }
+        });
+        liveStops.push(stop);
         box.appendChild(node);
       }
     } else {
