@@ -9,7 +9,7 @@ import { el } from '../dom.js';
 // focus, or the app is reopened after being fully killed), it recomputes from the real
 // end time and fires the chime/vibrate immediately if rest was already up.
 
-function playChime() {
+export function playChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();

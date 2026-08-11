@@ -7,7 +7,8 @@ import { dateForWeekDay } from '../services/calendar-service.js';
 import { logRetestEntry } from '../services/baseline-service.js';
 import { stepper } from './components/stepper.js';
 import { setChips } from './components/set-chips.js';
-import { restTimer } from './components/rest-timer.js';
+import { restTimer, playChime } from './components/rest-timer.js';
+import { phaseTimer } from './components/phase-timer.js';
 import { banner } from './components/banner.js';
 import { openDetail } from './detail-sheet.js';
 
@@ -155,12 +156,18 @@ async function renderCard(id, index, total, state, ctx, redraw) {
     return card;
   }
 
+  const holdSeconds = type === 'HOLD_TIME' ? parsePrescribedSeconds(state.rx?.text) : null;
+
   if (isScreen) {
     card.appendChild(buildScreenLogger(id, spec, state, existing, ctx, redraw));
   } else if (inRetestMode) {
     card.appendChild(await buildRetestLogger(id, spec, state, existing, ctx));
   } else if (type === 'TIER') {
     card.appendChild(await buildTierLogger(id, spec, state, existing, ctx, redraw));
+  } else if (state.ds === 'today' && holdSeconds != null) {
+    // Live, a real target exists to count down to — no manual stepper, the timers do
+    // the logging themselves.
+    card.appendChild(buildHoldTimeFlow(id, spec, state, existing, ctx, holdSeconds));
   } else {
     card.appendChild(buildNumericLogger(id, spec, state, existing, ctx, redraw));
   }
@@ -244,6 +251,90 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
   box.appendChild(gate);
   box.appendChild(notes);
   box.appendChild(cta);
+  return box;
+}
+
+// RULES.HOLD_TIME (progression-engine.js) returns text like "3 × 70s" — never a bare
+// number, so the target has to be parsed out rather than exposed as its own field.
+// Deliberately not changing the engine's return shape for this — RULES/CONFIG stay
+// untouched, per the whole project's "reuse the tested engine verbatim" rule.
+function parsePrescribedSeconds(rxText) {
+  const m = /×\s*(\d+)s/.exec(rxText || '');
+  return m ? Number(m[1]) : null;
+}
+
+// Live, timed holds: Start set N -> 5s "get ready" -> chime -> hold countdown for the
+// prescribed seconds -> chime -> rest timer -> chime, then back to Start set N+1. No
+// manual number entry — a completed hold IS the prescribed target by definition of the
+// timer completing, so each one logs itself; "Form held throughout" is the only manual
+// judgment left, exactly as specified.
+function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSeconds) {
+  const box = el('div');
+  let cleanState = existing ? existing.form_clean : true;
+  const gate = buildFormGate(cleanState, null, v => { cleanState = v; });
+  const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
+  notes.value = existing?.notes || '';
+
+  const sessionSets = existing ? [existing.value] : [];
+  const chipsHost = el('div');
+  const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
+  redrawChips();
+
+  const phaseHost = el('div');
+  const ctaHost = el('div');
+
+  function cancelLink(onCancel) {
+    return el('div', { style: 'text-align:center;font:600 10px/1 var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);cursor:pointer;margin-bottom:11px', text: 'Cancel', onClick: onCancel });
+  }
+
+  function drawIdle() {
+    clear(phaseHost);
+    clear(ctaHost);
+    const done = sessionSets.length >= 3;
+    const cta = el('button', { class: 'btn btn--primary', text: done ? 'Logged ✓' : `Start set ${Math.min(sessionSets.length + 1, 3)}` });
+    if (done) cta.setAttribute('disabled', '');
+    else cta.addEventListener('click', startCountdown);
+    ctaHost.appendChild(cta);
+  }
+
+  function startCountdown() {
+    clear(ctaHost);
+    clear(phaseHost);
+    const { node, stop } = phaseTimer({ label: 'Get ready', seconds: 5, accent: 'var(--amber)', onDone: () => { playChime(); startHold(); } });
+    phaseHost.appendChild(node);
+    phaseHost.appendChild(cancelLink(() => { stop(); drawIdle(); }));
+  }
+
+  function startHold() {
+    clear(phaseHost);
+    const { node, stop } = phaseTimer({ label: 'Hold', seconds: prescribedSeconds, accent: 'var(--moss)', onDone: onHoldComplete });
+    phaseHost.appendChild(node);
+    phaseHost.appendChild(cancelLink(() => { stop(); drawIdle(); }));
+  }
+
+  async function onHoldComplete() {
+    playChime();
+    await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: prescribedSeconds, subValue: null, formClean: cleanState, notes: notes.value });
+    if (sessionSets.length < 3) sessionSets.push(prescribedSeconds); else sessionSets[2] = prescribedSeconds;
+    redrawChips();
+    clear(phaseHost);
+    // No rest to take after the very last set of the very last exercise — the workout's over.
+    const isFinalSetOfWorkout = state.isLastExercise && sessionSets.length >= 3;
+    if (isFinalSetOfWorkout) {
+      drawIdle();
+    } else {
+      const { node } = restTimer(ctx.userId, restSecondsFor(id, ctx), () => { clear(phaseHost); drawIdle(); });
+      phaseHost.appendChild(node);
+    }
+  }
+
+  drawIdle();
+
+  box.appendChild(phaseHost);
+  box.appendChild(chipsHost);
+  box.appendChild(gate);
+  box.appendChild(notes);
+  box.appendChild(ctaHost);
   return box;
 }
 
