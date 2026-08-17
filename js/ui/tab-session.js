@@ -225,6 +225,7 @@ async function renderCard(id, index, total, state, ctx, redraw) {
   // an "Ns" tail, so it naturally excludes rep-based TIER exercises (pistol-squat,
   // dragon-flag, etc.) without needing to check subUnit explicitly.
   const holdSeconds = (type === 'HOLD_TIME' || type === 'TIER') ? parsePrescribedSeconds(state.rx?.text) : null;
+  const repsTarget = type === 'TIER' ? parsePrescribedReps(state.rx?.text) : null;
 
   if (isScreen) {
     card.appendChild(buildScreenLogger(id, spec, state, existing, ctx, redraw));
@@ -239,6 +240,12 @@ async function renderCard(id, index, total, state, ctx, redraw) {
     // stops applying and falls through to the plain edit form below, same as any other
     // past day.
     card.appendChild(await buildHoldTimeFlow(id, spec, state, existing, ctx, holdSeconds, type));
+  } else if (state.ds === 'today' && repsTarget != null) {
+    // Same "live, baseline already exists" gate as the hold-time branch above, but for
+    // rep-based TIER exercises (pull-up, pistol-squat, nordic-curl, toes-to-bar) — the
+    // Rx text prescribes the same 3-set structure, just with a manually-entered rep
+    // count per set instead of a timer-driven hold.
+    card.appendChild(await buildTierSetsFlow(id, spec, state, existing, ctx));
   } else if (type === 'TIER') {
     card.appendChild(await buildTierLogger(id, spec, state, existing, ctx, redraw));
   } else {
@@ -370,12 +377,103 @@ function buildNumericLogger(id, spec, state, existing, ctx, redraw) {
   return box;
 }
 
+// Live, rep-based TIER exercises (pull-up, pistol-squat, nordic-curl, toes-to-bar): same
+// 3-set/rest-timer shape as buildNumericLogger, except the stage is fixed for the week
+// (read-only, engine-computed — same reasoning as buildTierLogger's live path: you don't
+// get to just declare a different stage than the algorithm put you at) and each set logs
+// value=stage index / sub_value=reps performed, instead of a flat value.
+async function buildTierSetsFlow(id, spec, state, existing, ctx) {
+  const box = el('div');
+  const tiers = exerciseTiers(id);
+
+  let tierIdx;
+  if (existing) tierIdx = Math.round(existing.value ?? 0);
+  else {
+    const baseline = await getBaseline(ctx.userId, id);
+    tierIdx = baseline?.value != null ? Math.min(Math.max(Math.round(baseline.value), 0), tiers.length - 1) : 0;
+  }
+  box.appendChild(el('div', { style: 'font:500 13px/1.2 var(--font-display);letter-spacing:.04em;text-transform:uppercase;color:var(--moss-hi);margin-bottom:11px', text: tiers[tierIdx] || '' }));
+
+  const exState = getExerciseState(state.session, id, existing);
+  let cleanState = exState.formClean;
+  const gate = buildFormGate(cleanState, null, v => {
+    cleanState = v;
+    updateExercise(ctx.userId, state.week, state.day, id, { formClean: v });
+  });
+  const notes = el('textarea', { class: 'notes-field', placeholder: 'Notes (optional)' });
+  notes.value = exState.notes;
+  notes.addEventListener('blur', () => updateExercise(ctx.userId, state.week, state.day, id, { notes: notes.value }));
+
+  let draftValue = existing ? (existing.sub_value ?? spec.step) : spec.step;
+  const step = stepper({ value: draftValue, unitLabel: spec.unit, step: spec.step, min: 0, onChange: v => { draftValue = v; } });
+
+  let sessionSets = exState.setsCompleted.map(s => s.subValue);
+  const chipsHost = el('div');
+  const redrawChips = () => { clear(chipsHost); chipsHost.appendChild(setChips(sessionSets)); };
+  redrawChips();
+
+  const cta = el('button', { class: 'btn btn--primary' });
+  const updateCta = () => { cta.textContent = sessionSets.length >= 3 ? 'Logged ✓' : `Log set ${sessionSets.length + 1}`; };
+  updateCta();
+  cta.addEventListener('click', async () => {
+    try {
+      await logEntry({ userId: ctx.userId, week: state.week, day: state.day, exerciseId: id, value: tierIdx, subValue: draftValue, formClean: cleanState, notes: notes.value });
+    } catch (err) {
+      console.error(`logEntry failed for ${id}, relying on session-state + Complete Session reconciliation`, err);
+    }
+    const updated = addCompletedSet(ctx.userId, state.week, state.day, id, { value: tierIdx, subValue: draftValue });
+    sessionSets = updated.exercises[id].setsCompleted.map(s => s.subValue);
+    redrawChips();
+    updateCta();
+    // No rest to take after the very last set of the very last exercise — the workout's over.
+    const isFinalSetOfWorkout = state.isLastExercise && sessionSets.length >= 3;
+    if (!isFinalSetOfWorkout) {
+      const { node, stop } = restTimer({
+        seconds: restSecondsFor(id, ctx),
+        onPersist: endAt => setPhase(ctx.userId, state.week, state.day, id, { type: 'rest', endAt, setNumber: sessionSets.length }),
+        onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); node.remove(); }
+      });
+      liveStops.push(stop);
+      box.appendChild(node);
+    }
+  });
+
+  box.appendChild(step);
+  box.appendChild(chipsHost);
+  box.appendChild(gate);
+  box.appendChild(notes);
+  box.appendChild(cta);
+
+  // Resume an in-flight rest phase — came back from another tab/app mid-rest.
+  if (exState.phase?.type === 'rest') {
+    const { node, stop } = restTimer({
+      seconds: restSecondsFor(id, ctx),
+      resumeEndAt: exState.phase.endAt,
+      onDone: () => { clearPhase(ctx.userId, state.week, state.day, id); node.remove(); }
+    });
+    liveStops.push(stop);
+    box.appendChild(node);
+  }
+
+  return box;
+}
+
 // RULES.HOLD_TIME (progression-engine.js) returns text like "3 × 70s" — never a bare
 // number, so the target has to be parsed out rather than exposed as its own field.
 // Deliberately not changing the engine's return shape for this — RULES/CONFIG stay
 // untouched, per the whole project's "reuse the tested engine verbatim" rule.
 function parsePrescribedSeconds(rxText) {
   const m = /×\s*(\d+)s/.exec(rxText || '');
+  return m ? Number(m[1]) : null;
+}
+
+// RULES.TIER prescribes "SETS × N" with no unit suffix for rep-based tiers (e.g. pull-up's
+// "Full — 3 × 3"), vs "SETS × Ns" for hold-based ones — the trailing digits-only anchor is
+// what tells the two apart. Only matches once a baseline exists (same as
+// parsePrescribedSeconds — no computed Rx yet falls through to buildTierLogger's baseline
+// stage-picker).
+function parsePrescribedReps(rxText) {
+  const m = /×\s*(\d+)$/.exec(rxText || '');
   return m ? Number(m[1]) : null;
 }
 
@@ -581,6 +679,12 @@ async function buildTierLogger(id, spec, state, existing, ctx, redraw) {
       else throw err; // past-day edit has no session-state.js backstop, surface it
     }
     if (isLive) {
+      // Mirrors buildNumericLogger/buildHoldTimeFlow: record locally even if the write
+      // above just failed — this is the record completeSession's reconciliation pass
+      // actually walks. Without it, a silently-failed logEntry here had nothing backing
+      // it up, so "Complete Session" would both flag it unlogged AND have nothing to
+      // replay, unlike every other exercise type.
+      addCompletedSet(ctx.userId, state.week, state.day, id, { value: tierIdx, subValue });
       cta.textContent = 'Logged ✓';
       // No rest to take after the very last exercise of the workout.
       if (!state.isLastExercise) {
