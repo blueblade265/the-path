@@ -110,6 +110,23 @@ export const EXERCISES = {
     cues: ['Eyes open to failure first, then eyes closed.', 'Soft knee, quiet foot.'],
     abort: 'The lifted foot touches down.'
   },
+  // Split from single-leg-balance (see progression-engine.js) so each leg progresses
+  // independently. Both ids inherited the combined exercise's full logged history via
+  // migration_007 — see that file for why. The old combined id above stays, unchanged,
+  // purely for historical display; it was removed from day-plan.js's DAY_IDS so nothing
+  // new ever logs against it again.
+  'single-leg-balance-left': {
+    name: 'Single-Leg Balance — Left', unit: 'seconds, eyes closed', step: 5, suffix: 's',
+    coach: 'Left leg. Eyes open to failure first, then eyes closed — log the eyes-closed number.',
+    cues: ['Eyes open to failure first, then eyes closed.', 'Soft knee, quiet foot.'],
+    abort: 'The lifted foot touches down.'
+  },
+  'single-leg-balance-right': {
+    name: 'Single-Leg Balance — Right', unit: 'seconds, eyes closed', step: 5, suffix: 's',
+    coach: 'Right leg. Eyes open to failure first, then eyes closed — log the eyes-closed number.',
+    cues: ['Eyes open to failure first, then eyes closed.', 'Soft knee, quiet foot.'],
+    abort: 'The lifted foot touches down.'
+  },
   // TIER — Ball Rollout / Ground Push / Banded / Full.
   'nordic-curl': {
     name: 'Nordic Curl', unit: 'clean reps', step: 1, suffix: '',
@@ -130,15 +147,30 @@ export const EXERCISES = {
     abort: 'Hips sag, or the shoulders shrug.'
   },
   'dragon-flag': {
-    name: 'Dragon Flag', unit: 'clean reps', step: 1, suffix: '',
-    coach: 'Slow negatives. Stop when the back arches.',
-    cues: ['Grip behind the head, body in one line.', 'Lower slowly — the eccentric is the work.'],
+    name: 'Dragon Flag', unit: 'seconds held', step: 1, suffix: 's',
+    coach: 'Lower slowly into position, then hold. Stop when the back arches.',
+    cues: ['Grip behind the head, body in one line.', 'The negative is just the entry into the hold — control it, then stay.'],
     abort: 'Low back arches off the bench, or hips drop first.'
   },
   // TIER — "Side Plank" confirmed as stage 1; see progression-engine.js TODO(user) for the rest.
   'side-lever': {
     name: 'Side Lever', unit: 'seconds per side', step: 5, suffix: 's',
     coach: 'Hold at your current stage. Stop when the hips drop.',
+    cues: ['Straight line shoulder to feet, hips lifted.', 'Do not let the body rotate toward the floor.'],
+    abort: 'Hips drop, or the body rotates down.'
+  },
+  // Split from side-lever, same rationale as single-leg-balance above — see migration_007.
+  // `unit` drops "per side" (that phrasing was for the old combined tracking); each new id
+  // now tracks one side only, so it reads like l-sit/front-lever's "seconds held".
+  'side-lever-left': {
+    name: 'Side Lever — Left', unit: 'seconds held', step: 5, suffix: 's',
+    coach: 'Left side. Hold at your current stage. Stop when the hips drop.',
+    cues: ['Straight line shoulder to feet, hips lifted.', 'Do not let the body rotate toward the floor.'],
+    abort: 'Hips drop, or the body rotates down.'
+  },
+  'side-lever-right': {
+    name: 'Side Lever — Right', unit: 'seconds held', step: 5, suffix: 's',
+    coach: 'Right side. Hold at your current stage. Stop when the hips drop.',
     cues: ['Straight line shoulder to feet, hips lifted.', 'Do not let the body rotate toward the floor.'],
     abort: 'Hips drop, or the body rotates down.'
   },

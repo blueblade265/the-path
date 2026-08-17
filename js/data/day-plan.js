@@ -9,8 +9,8 @@ export const DAY_IDS = {
   2: ['hollow-hold', 'pushup-bottom-hold', 'ring-support-hold', 'pike-handstand-hold', 'scapular-pullup'],
   3: ['dead-hang', 'active-hang', 'front-lever', 'ring-row', 'pull-up'],
   4: ['screen-shoulder-flexion', 'screen-shoulder-rotation', 'screen-ohs', 'screen-couch-stretch', 'screen-aslr', 'screen-thoracic-rotation'],
-  5: ['squat-hold', 'pistol-squat', 'single-leg-balance', 'nordic-curl', 'calf-raise-hold'],
-  6: ['l-sit', 'dragon-flag', 'side-lever', 'toes-to-bar', 'hollow-hold-retest']
+  5: ['squat-hold', 'pistol-squat', 'single-leg-balance-left', 'single-leg-balance-right', 'nordic-curl', 'calf-raise-hold'],
+  6: ['l-sit', 'dragon-flag', 'side-lever-left', 'side-lever-right', 'toes-to-bar', 'hollow-hold-retest']
 };
 
 export const DAY_META = {
@@ -19,8 +19,8 @@ export const DAY_META = {
   2: { title: 'Push + Stabilizers', meta: '5 movements' },
   3: { title: 'Pull + Grip', meta: '5 movements · rings' },
   4: { title: 'Mobility Screen', meta: '6 screens · asymmetry' },
-  5: { title: 'Legs + Hip', meta: '5 movements' },
-  6: { title: 'Core + Integration', meta: '5 movements' }
+  5: { title: 'Legs + Hip', meta: '6 movements' },
+  6: { title: 'Core + Integration', meta: '6 movements' }
 };
 
 export function exerciseIdsForDay(dayOfWeek) {

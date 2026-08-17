@@ -41,6 +41,10 @@ the hardest stage needs generalizing, same as was done for the exercises above).
      Full / High Pull / Muscle Up) — converts existing rep-count values into
      stage 1 ("Full") + performance, since every pull-up logged before this was a
      full pull-up.
+   - `supabase/migration_007_left_right_split.sql`: run once if any single-leg-balance
+     or side-lever data was logged before they were split into independent left/right
+     exercise ids — duplicates each existing row under the new `-left`/`-right` ids so
+     both sides' progression continues from the combined history instead of resetting.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql
