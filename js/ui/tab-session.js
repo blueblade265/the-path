@@ -54,7 +54,11 @@ export async function renderSession(container, ctx, target) {
 
   const meta = dayMeta(day);
   const ids = exerciseIdsForDay(day);
-  const dayEntries = await entriesForDay(ctx.userId, week, day);
+  // Reassigned by refresh() — a live session's individual exercise loggers write straight
+  // to Supabase/session-state.js without going through this outer render's state, so this
+  // has to be re-fetched whenever something might have changed underneath it, not just
+  // fetched once at mount.
+  let dayEntries = await entriesForDay(ctx.userId, week, day);
   const missed = ds === 'past' && !meta.rest && dayEntries.length === 0;
   let unlocked = false;
 
@@ -76,6 +80,7 @@ export async function renderSession(container, ctx, target) {
     sessionStatus = ds === 'today' ? sessionStatusFor(ctx.userId, week, day) : 'none';
     session = ds === 'today' ? loadSession(ctx.userId, week, day) : null;
     effectiveDs = (ds === 'today' && sessionStatus === 'completed') ? 'past' : ds;
+    dayEntries = await entriesForDay(ctx.userId, week, day);
     drawHeader();
     await drawList();
   }
@@ -105,7 +110,15 @@ export async function renderSession(container, ctx, target) {
         text: 'Session in progress.',
         actionLabel: 'Complete Session',
         onAction: async () => {
-          const allLogged = ids.every(id => (session?.exercises?.[id]?.setsCompleted?.length > 0) || dayEntries.some(e => e.exercise_id === id));
+          // session/dayEntries here are whatever they were at the last refresh() (mount,
+          // or Start Session) — individual exercise loggers write straight to
+          // Supabase/session-state.js without ever calling refresh(), so by the time a
+          // live session's last exercise gets logged and this button is pressed, both are
+          // stale and this check would false-positive on every completed session. Re-fetch
+          // right here instead of trusting the closures.
+          const freshSession = loadSession(ctx.userId, week, day);
+          const freshEntries = await entriesForDay(ctx.userId, week, day);
+          const allLogged = ids.every(id => (freshSession?.exercises?.[id]?.setsCompleted?.length > 0) || freshEntries.some(e => e.exercise_id === id));
           if (!allLogged && !confirm("Some exercises don't look logged yet. Complete session anyway?")) return;
           await completeSession(ctx.userId, week, day, args => logEntry(args));
           await refresh();
