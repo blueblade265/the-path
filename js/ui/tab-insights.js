@@ -1,6 +1,5 @@
 import { el, clear } from './dom.js';
 import { EXERCISES } from '../data/exercises.js';
-import { dayMeta } from '../data/day-plan.js';
 import { weekDayForDate } from '../services/calendar-service.js';
 import { loadInsights, allTierProgress, forecastText } from '../services/insights-service.js';
 import { openDetail } from './detail-sheet.js';
@@ -14,7 +13,7 @@ export async function renderInsights(container, ctx) {
   const scheduledSlots = [];
   for (let i = 0, d = new Date(today); scheduledSlots.length < 36 && d >= ctx.startDate; i++) {
     const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, d);
-    if (!dayMeta(day).rest) scheduledSlots.push({ week, day });
+    if (!ctx.dayPlan[day].rest) scheduledSlots.push({ week, day });
     d = addDays(d, -1);
   }
 

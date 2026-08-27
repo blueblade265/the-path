@@ -1,3 +1,11 @@
+// No longer imported by any UI file as of the per-user Program Builder (js/services/
+// program-service.js) — each user's live schedule now lives in the program_days /
+// program_exercises tables, seeded once from this exact file's contents (see
+// supabase/migration_008_program_builder.sql's header comment). Kept here, unchanged,
+// as the literal record of that seed and as a ready-made default template for a future
+// "reset to default" / new-user-starting-point convenience — not currently wired to
+// anything.
+//
 // The Path — day-of-week -> exercise list.
 // Keys: 0=Sunday (rest) .. 6=Saturday, matching training_entries.day in schema.sql.
 // Reconciled from the mockup's 6-day split with renamed ids (see exercises.js) and the

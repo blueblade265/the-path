@@ -1,12 +1,16 @@
 import { el, clear } from './dom.js';
-import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { EXERCISES, exerciseType, exerciseTiers, formatEntryValue } from '../data/exercises.js';
 import { saveBaseline } from '../services/bulk-entry-service.js';
 import { exportAsText, downloadText } from '../services/export-service.js';
 import { restartProgram, dateForWeekDay } from '../services/calendar-service.js';
 import { setRestSettings } from '../services/settings-service.js';
+import { setDayTitle, setDayExercises } from '../services/program-service.js';
 import { allBaselines, scheduleRetest, cancelRetest, advanceStage } from '../services/baseline-service.js';
 import { signOut } from '../supabase-client.js';
+
+function sortedDayKeys(dayPlan) {
+  return Object.keys(dayPlan).map(Number).sort((a, b) => a - b);
+}
 
 export async function renderMore(container, ctx) {
   clear(container);
@@ -23,6 +27,7 @@ function drawRoot(screen, ctx) {
   screen.appendChild(group('Data', [
     row('Bulk entry', 'Enter your Week 0 baseline, one day at a time', '→', () => drawBulkEntry(screen, ctx)),
     row('Baselines', 'Your current reference point per exercise', ctx.pendingRetestWeek != null ? 'Retest scheduled' : '→', () => drawBaselines(screen, ctx)),
+    row('Program builder', 'Edit which exercises run on each day', '→', () => drawProgramBuilder(screen, ctx)),
     row('Export my log', 'Plain text, yours to keep', '→', async () => {
       const text = await exportAsText(ctx.userId);
       downloadText('the-path-export.txt', text);
@@ -70,7 +75,7 @@ function drawBulkEntry(screen, ctx) {
   screen.appendChild(el('div', { style: 'font:400 12.5px/1.5 var(--font-body);color:var(--text-secondary);margin-bottom:16px', text: 'Pick a day, enter your tested max for each movement, save. Repeat for every training day.' }));
 
   const dayPicker = el('select', { class: 'notes-field', style: 'margin-bottom:16px' },
-    [1, 2, 3, 4, 5, 6].map(d => el('option', { value: String(d), text: dayMeta(d).title }))
+    sortedDayKeys(ctx.dayPlan).map(d => el('option', { value: String(d), text: ctx.dayPlan[d].title }))
   );
   screen.appendChild(dayPicker);
 
@@ -80,7 +85,7 @@ function drawBulkEntry(screen, ctx) {
   function drawForm() {
     clear(formHost);
     const day = Number(dayPicker.value);
-    const ids = exerciseIdsForDay(day);
+    const ids = ctx.dayPlan[day].exerciseIds;
     const inputs = {};
 
     for (const id of ids) {
@@ -117,7 +122,7 @@ function drawBulkEntry(screen, ctx) {
           notes: inputs[id].notesInput.value || null
         }));
         await saveBaseline(ctx.userId, entries);
-        alert(`Saved baseline for ${dayMeta(day).title}.`);
+        alert(`Saved baseline for ${ctx.dayPlan[day].title}.`);
       }
     }));
   }
@@ -168,9 +173,10 @@ async function drawBaselines(screen, ctx) {
   const baselines = await allBaselines(ctx.userId);
   const byExercise = Object.fromEntries(baselines.map(b => [b.exercise_id, b]));
 
-  for (const day of [1, 2, 3, 4, 5, 6]) {
-    screen.appendChild(el('div', { class: 'section-label', text: dayMeta(day).title }));
-    screen.appendChild(el('div', { class: 'list-group' }, exerciseIdsForDay(day)
+  for (const day of sortedDayKeys(ctx.dayPlan)) {
+    if (ctx.dayPlan[day].exerciseIds.length === 0) continue; // rest day — nothing to show a baseline for
+    screen.appendChild(el('div', { class: 'section-label', text: ctx.dayPlan[day].title }));
+    screen.appendChild(el('div', { class: 'list-group' }, ctx.dayPlan[day].exerciseIds
       .filter(id => exerciseType(id) !== 'SCREEN')
       .map(id => {
         const spec = EXERCISES[id];
@@ -191,6 +197,105 @@ async function drawBaselines(screen, ctx) {
       })
     ));
   }
+}
+
+function drawProgramBuilder(screen, ctx) {
+  clear(screen);
+  screen.appendChild(backBtn(() => drawRoot(screen, ctx)));
+  screen.appendChild(el('div', { class: 'page-title', text: 'Program Builder' }));
+  screen.appendChild(el('div', { style: 'font:400 12.5px/1.5 var(--font-body);color:var(--text-secondary);margin-bottom:16px', text: 'Pick a day, rename it, add or remove exercises, reorder with the arrows. A day with no exercises is a rest day.' }));
+
+  const dayPicker = el('select', { class: 'notes-field', style: 'margin-bottom:16px' },
+    sortedDayKeys(ctx.dayPlan).map(d => el('option', { value: String(d), text: ctx.dayPlan[d].title }))
+  );
+  screen.appendChild(dayPicker);
+
+  const formHost = el('div');
+  screen.appendChild(formHost);
+
+  function drawForm() {
+    clear(formHost);
+    const day = Number(dayPicker.value);
+    const plan = ctx.dayPlan[day];
+    const draftIds = [...plan.exerciseIds]; // local working copy — nothing writes to Supabase until Save
+
+    formHost.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px', text: 'Day title' }));
+    const titleInput = el('input', { type: 'text', class: 'notes-field', style: 'margin-bottom:16px', value: plan.title });
+    formHost.appendChild(titleInput);
+
+    const countLabel = el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px' });
+    formHost.appendChild(countLabel);
+    const listHost = el('div', { class: 'list-group', style: 'margin-bottom:16px' });
+    formHost.appendChild(listHost);
+
+    function updateCount() {
+      countLabel.textContent = draftIds.length === 0 ? 'Exercises (rest day)' : `Exercises (${draftIds.length} movement${draftIds.length === 1 ? '' : 's'})`;
+    }
+
+    function drawExerciseList() {
+      updateCount();
+      clear(listHost);
+      draftIds.forEach((id, i) => {
+        const spec = EXERCISES[id];
+        listHost.appendChild(el('div', { class: 'list-row' }, [
+          el('div', {}, [el('div', { class: 'list-row__label', text: spec.name })]),
+          el('div', { style: 'display:flex;gap:6px;flex:none' }, [
+            el('button', {
+              class: 'btn btn--outline', style: 'padding:4px 10px', text: '↑', disabled: i === 0 ? true : undefined,
+              onClick: () => { [draftIds[i - 1], draftIds[i]] = [draftIds[i], draftIds[i - 1]]; drawExerciseList(); }
+            }),
+            el('button', {
+              class: 'btn btn--outline', style: 'padding:4px 10px', text: '↓', disabled: i === draftIds.length - 1 ? true : undefined,
+              onClick: () => { [draftIds[i + 1], draftIds[i]] = [draftIds[i], draftIds[i + 1]]; drawExerciseList(); }
+            }),
+            el('button', {
+              class: 'btn btn--outline', style: 'padding:4px 10px', text: '✕',
+              onClick: () => { draftIds.splice(i, 1); drawExerciseList(); refreshAddPicker(); }
+            })
+          ])
+        ]));
+      });
+    }
+
+    formHost.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin:16px 0 6px', text: 'Add exercise' }));
+    const addPicker = el('select', { class: 'notes-field', style: 'margin-bottom:8px' });
+    formHost.appendChild(addPicker);
+
+    function refreshAddPicker() {
+      clear(addPicker);
+      addPicker.appendChild(el('option', { value: '', text: '— choose an exercise —' }));
+      Object.keys(EXERCISES)
+        .filter(id => !EXERCISES[id].deprecated && !draftIds.includes(id))
+        .sort((a, b) => EXERCISES[a].name.localeCompare(EXERCISES[b].name))
+        .forEach(id => addPicker.appendChild(el('option', { value: id, text: EXERCISES[id].name })));
+    }
+
+    formHost.appendChild(el('button', {
+      class: 'btn btn--outline', style: 'margin-bottom:16px', text: 'Add to this day',
+      onClick: () => {
+        if (!addPicker.value) return;
+        draftIds.push(addPicker.value);
+        drawExerciseList();
+        refreshAddPicker();
+      }
+    }));
+
+    formHost.appendChild(el('button', {
+      class: 'btn btn--primary', text: 'Save this day',
+      onClick: async () => {
+        await setDayTitle(ctx.userId, day, titleInput.value.trim() || plan.title);
+        await setDayExercises(ctx.userId, day, draftIds);
+        await ctx.reloadDayPlan();
+        drawProgramBuilder(screen, ctx);
+      }
+    }));
+
+    drawExerciseList();
+    refreshAddPicker();
+  }
+
+  dayPicker.addEventListener('change', drawForm);
+  drawForm();
 }
 
 function drawRestTimers(screen, ctx) {

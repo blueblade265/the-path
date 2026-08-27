@@ -4,6 +4,7 @@ import { isApproved } from '../services/access-service.js';
 import { getProgramSettings, getWeekSkips, restartProgram, weekDayForDate } from '../services/calendar-service.js';
 import { getRestSettings } from '../services/settings-service.js';
 import { getPendingRetestWeek } from '../services/baseline-service.js';
+import { getProgramDayPlan } from '../services/program-service.js';
 import { catchUpActiveSession } from '../services/session-state.js';
 import { mountDetailSheet } from './detail-sheet.js';
 import { renderHome } from './tab-home.js';
@@ -113,6 +114,7 @@ async function renderApp(userId, email, startDate, gen) {
   const skips = await getWeekSkips(userId);
   const restSettings = await getRestSettings(userId);
   const pendingRetestWeek = await getPendingRetestWeek(userId);
+  const dayPlan = await getProgramDayPlan(userId);
   if (gen !== renderGen) return; // a newer auth/render event superseded this one
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // null when the program hasn't started yet (a future start date) — fall back to
@@ -129,7 +131,7 @@ async function renderApp(userId, email, startDate, gen) {
   clear(root);
 
   const ctx = {
-    userId, email, startDate, skips, todayWeekDay, restSettings, pendingRetestWeek,
+    userId, email, startDate, skips, todayWeekDay, restSettings, pendingRetestWeek, dayPlan,
     navigate: (tabKey, args) => { currentTab = tabKey; navArgs = args || null; drawTab(); },
     reloadCalendar: async () => {
       const s = await getProgramSettings(userId);
@@ -144,6 +146,9 @@ async function renderApp(userId, email, startDate, gen) {
     },
     reloadPendingRetestWeek: async () => {
       ctx.pendingRetestWeek = await getPendingRetestWeek(userId);
+    },
+    reloadDayPlan: async () => {
+      ctx.dayPlan = await getProgramDayPlan(userId);
     }
   };
 

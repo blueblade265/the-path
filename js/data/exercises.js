@@ -58,6 +58,7 @@ export const EXERCISES = {
   // display; removed from day-plan.js's DAY_IDS so nothing new logs against it again.
   'scapular-pullup': {
     name: 'Scapular Pull-Up', unit: 'clean reps', step: 1, suffix: '',
+    deprecated: true, // superseded by skin-the-cat — kept for historical display only, never re-schedulable
     coach: 'No elbow bend at all.',
     cues: ['Dead hang, depress and retract the scaps only.', 'Lower under control, do not drop.'],
     abort: 'Any elbow bend, or momentum takes over.'
@@ -114,6 +115,7 @@ export const EXERCISES = {
   },
   'single-leg-balance': {
     name: 'Single-Leg Balance', unit: 'seconds, eyes closed', step: 5, suffix: 's',
+    deprecated: true, // superseded by single-leg-balance-left/-right — kept for historical display only, never re-schedulable
     coach: 'Eyes open to failure first, then eyes closed — log the eyes-closed number.',
     cues: ['Eyes open to failure first, then eyes closed.', 'Soft knee, quiet foot.'],
     abort: 'The lifted foot touches down.'
@@ -163,6 +165,7 @@ export const EXERCISES = {
   // TIER — "Side Plank" confirmed as stage 1; see progression-engine.js TODO(user) for the rest.
   'side-lever': {
     name: 'Side Lever', unit: 'seconds per side', step: 5, suffix: 's',
+    deprecated: true, // superseded by side-lever-left/-right — kept for historical display only, never re-schedulable
     coach: 'Hold at your current stage. Stop when the hips drop.',
     cues: ['Straight line shoulder to feet, hips lifted.', 'Do not let the body rotate toward the floor.'],
     abort: 'Hips drop, or the body rotates down.'

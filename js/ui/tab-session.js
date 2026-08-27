@@ -1,5 +1,4 @@
 import { el, clear } from './dom.js';
-import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { EXERCISES, exerciseType, exerciseTiers, formatEntryValue } from '../data/exercises.js';
 import { entriesForDay, logEntry, historyForExercise, getBaseline } from '../services/entries-repo.js';
 import { prescriptionsForDay } from '../services/rx-service.js';
@@ -52,8 +51,8 @@ export async function renderSession(container, ctx, target) {
   // it stays historically accurate if you browse back to it later.
   const isRetestWeek = ctx.pendingRetestWeek != null && week === ctx.pendingRetestWeek;
 
-  const meta = dayMeta(day);
-  const ids = exerciseIdsForDay(day);
+  const meta = ctx.dayPlan[day];
+  const ids = meta.exerciseIds;
   // Reassigned by refresh() — a live session's individual exercise loggers write straight
   // to Supabase/session-state.js without going through this outer render's state, so this
   // has to be re-fetched whenever something might have changed underneath it, not just

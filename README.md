@@ -45,6 +45,11 @@ the hardest stage needs generalizing, same as was done for the exercises above).
      or side-lever data was logged before they were split into independent left/right
      exercise ids — duplicates each existing row under the new `-left`/`-right` ids so
      both sides' progression continues from the combined history instead of resetting.
+   - `supabase/migration_008_program_builder.sql`: run once, on a fresh install too —
+     there's no prior version of these tables to migrate from. Creates `program_days`/
+     `program_exercises`, the per-user editable schedule that replaces
+     `js/data/day-plan.js`'s old single global schedule. Existing accounts need their
+     starting data seeded separately — see the file's own header comment.
 3. Approve yourself (and anyone else) to actually use the app — RLS blocks everyone by
    default until they're in this table:
    ```sql

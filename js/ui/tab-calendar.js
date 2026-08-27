@@ -1,5 +1,4 @@
 import { el, clear } from './dom.js';
-import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { EXERCISES, formatEntryValue } from '../data/exercises.js';
 import { allEntries } from '../services/entries-repo.js';
 import { dateForWeekDay, weekDayForDate, skipWeek } from '../services/calendar-service.js';
@@ -69,7 +68,7 @@ function dayTile(date, ctx, entries, selectedDate, onPick) {
   }
 
   const { week, day } = wd;
-  const meta = dayMeta(day);
+  const meta = ctx.dayPlan[day];
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const cmp = new Date(date); cmp.setHours(0, 0, 0, 0);
   const logged = entries.some(e => e.week === week && e.day === day);
@@ -103,7 +102,7 @@ function monthGrid(selectedDate, ctx, entries, onPick) {
       ]);
     }
     const { week, day } = wd;
-    const meta = dayMeta(day);
+    const meta = ctx.dayPlan[day];
     const logged = entries.some(e => e.week === week && e.day === day);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const cmp = new Date(d); cmp.setHours(0, 0, 0, 0);
@@ -130,11 +129,11 @@ function selectedDayCard(date, ctx, entries, today) {
     ]);
   }
   const { week, day } = wd;
-  const meta = dayMeta(day);
+  const meta = ctx.dayPlan[day];
   const cmp = new Date(date); cmp.setHours(0, 0, 0, 0);
   const isToday = cmp.getTime() === today.getTime();
   const isPast = cmp < today;
-  const ids = exerciseIdsForDay(day);
+  const ids = meta.exerciseIds;
   const dayEntries = entries.filter(e => e.week === week && e.day === day);
   const missed = isPast && !meta.rest && dayEntries.length === 0;
 
@@ -149,7 +148,7 @@ function selectedDayCard(date, ctx, entries, today) {
   const card = el('div', { class: 'card' }, [
     el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px', text: kicker }),
     el('div', { style: 'font:600 24px/1.05 var(--font-display);text-transform:uppercase;color:var(--text-primary)', text: meta.title }),
-    el('div', { style: 'font:400 12px/1.4 var(--font-body);color:var(--text-secondary);margin:5px 0 14px', text: meta.meta }),
+    el('div', { style: 'font:400 12px/1.4 var(--font-body);color:var(--text-secondary);margin:5px 0 14px', text: meta.rest ? 'Nothing scheduled' : `${ids.length} movement${ids.length === 1 ? '' : 's'}` }),
     ...rows.map(r => el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border-alt)' }, [
       el('div', { style: 'font:400 13px/1.3 var(--font-body);color:var(--text-body)', text: r.name }),
       el('div', { style: 'flex:none;font:400 11.5px/1 var(--font-mono);color:var(--text-secondary)', text: r.value })

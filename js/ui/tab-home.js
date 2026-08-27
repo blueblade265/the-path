@@ -1,5 +1,4 @@
 import { el, clear } from './dom.js';
-import { exerciseIdsForDay, dayMeta } from '../data/day-plan.js';
 import { loadInsights, forecastText } from '../services/insights-service.js';
 import { weekDayForDate } from '../services/calendar-service.js';
 import { sessionStatusFor, startSession } from '../services/session-state.js';
@@ -21,7 +20,7 @@ export async function renderHome(container, ctx) {
     if (d > today) continue;
     const wd = weekDayForDate(ctx.startDate, ctx.skips, d);
     if (!wd) continue; // before the program started — not a scheduled day
-    if (!dayMeta(wd.day).rest) scheduledSlots.push(wd);
+    if (!ctx.dayPlan[wd.day].rest) scheduledSlots.push(wd);
   }
 
   const { entries, streak, chasing, consistency } = await loadInsights(ctx.userId, scheduledSlots);
@@ -75,7 +74,7 @@ export async function renderHome(container, ctx) {
     }
 
     const { week, day } = wd;
-    const meta = dayMeta(day);
+    const meta = ctx.dayPlan[day];
     const logged = entries.some(e => e.week === week && e.day === day);
     const isFuture = d > today;
     const mark = meta.rest ? '—' : (logged ? '✓' : (isFuture ? '·' : '•'));
@@ -95,8 +94,8 @@ export async function renderHome(container, ctx) {
     weekGrid
   ]));
 
-  const todayIds = exerciseIdsForDay(todayDow);
-  const meta = dayMeta(todayDow);
+  const meta = ctx.dayPlan[todayDow];
+  const todayIds = meta.exerciseIds;
   // Session status (session-state.js), not raw entry counts, is the source of truth for
   // "where you are in today's workout" — a session can be active with nothing logged
   // yet, or completed with everything logged, and only session-state.js actually knows
