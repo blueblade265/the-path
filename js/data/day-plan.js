@@ -6,7 +6,7 @@
 export const DAY_IDS = {
   0: [],
   1: ['back-squat', 'deadlift', 'bench-press'],
-  2: ['hollow-hold', 'pushup-bottom-hold', 'ring-support-hold', 'pike-handstand-hold', 'scapular-pullup'],
+  2: ['hollow-hold', 'pushup-bottom-hold', 'ring-support-hold', 'pike-handstand-hold', 'skin-the-cat'],
   3: ['dead-hang', 'active-hang', 'front-lever', 'ring-row', 'pull-up'],
   4: ['squat-hold', 'pistol-squat', 'single-leg-balance-left', 'single-leg-balance-right', 'nordic-curl', 'calf-raise-hold'],
   5: ['l-sit', 'dragon-flag', 'side-lever-left', 'side-lever-right', 'toes-to-bar', 'hollow-hold-retest'],

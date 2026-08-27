@@ -157,6 +157,7 @@ const RULE_MAP = {
   'ring-support-hold':  { type:'HOLD_TIME', unit:'sec' },
   'pike-handstand-hold':{ type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Pike','Wall Pike','Stabilized','Free'] } },
   'scapular-pullup':    { type:'REPS', unit:'reps' },
+  'skin-the-cat':       { type:'REPS', unit:'reps' },
   'dead-hang':    { type:'HOLD_TIME', unit:'sec' },
   'active-hang':  { type:'HOLD_TIME', unit:'sec' },
   'front-lever':  { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Not yet achievable — block assist','Not yet achievable — eccentric entry','Tuck','Advanced Tuck','One-Leg','Straddle','Full'] } },

@@ -54,11 +54,19 @@ export const EXERCISES = {
     cues: ['Head neutral, core braced, push the floor away.', 'Pike stages: walk the feet up to a comfortable vertical.'],
     abort: 'Hips pike open early in the ladder, or you lose balance/bail out at Stabilized and Free.'
   },
+  // Replaced by skin-the-cat below — kept here, unchanged, purely for historical
+  // display; removed from day-plan.js's DAY_IDS so nothing new logs against it again.
   'scapular-pullup': {
     name: 'Scapular Pull-Up', unit: 'clean reps', step: 1, suffix: '',
     coach: 'No elbow bend at all.',
     cues: ['Dead hang, depress and retract the scaps only.', 'Lower under control, do not drop.'],
     abort: 'Any elbow bend, or momentum takes over.'
+  },
+  'skin-the-cat': {
+    name: 'Skin the Cat', unit: 'clean reps', step: 1, suffix: '',
+    coach: 'Straight arms the whole way. Control the descent and the return equally.',
+    cues: ['From a support or dead hang, tuck the knees and rotate through slowly.', 'Straight arms throughout — no elbow bend to cheat the rotation.'],
+    abort: 'Arms bend, or the descent speeds up and loses control.'
   },
   'dead-hang': {
     name: 'Dead Hang (rings)', unit: 'seconds held', step: 5, suffix: 's',
