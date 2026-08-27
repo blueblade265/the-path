@@ -87,7 +87,8 @@ export const EXERCISES = {
     cues: ['Knees to chest, lean back until the torso is level.', 'Cannot pull in from the bottom? Enter from the top and lower.'],
     abort: 'Hips drop, back rounds, or you needed momentum.'
   },
-  // TIER — German Hang / Tuck / Advanced Tuck / Straddle / Full.
+  // TIER — mirrors front-lever's exact ladder (Block Assist / Eccentric Entry / Tuck /
+  // Advanced Tuck / One-Leg / Straddle / Full) — same movement family, same stages.
   'back-lever': {
     name: 'Back Lever', unit: 'seconds held', step: 1, suffix: 's',
     coach: 'At your current stage. Stop when the shoulders round or hips pike.',
