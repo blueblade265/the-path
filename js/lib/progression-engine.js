@@ -161,6 +161,7 @@ const RULE_MAP = {
   'dead-hang':    { type:'HOLD_TIME', unit:'sec' },
   'active-hang':  { type:'HOLD_TIME', unit:'sec' },
   'front-lever':  { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Not yet achievable — block assist','Not yet achievable — eccentric entry','Tuck','Advanced Tuck','One-Leg','Straddle','Full'] } },
+  'back-lever':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['German Hang','Tuck','Advanced Tuck','Straddle','Full'] } },
   'ring-row':     { type:'REPS', unit:'reps' },
   'pull-up':      { type:'TIER', unit:'tier', params:{ subUnit:'reps', tiers:['Negative','Full','High Pull','Muscle Up'] } },
   'squat-hold':   { type:'TIER', unit:'tier', params:{ subUnit:'sec', tiers:['Wall Assisted','Free Standing','Weighted'] } },

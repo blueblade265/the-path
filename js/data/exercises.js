@@ -87,6 +87,13 @@ export const EXERCISES = {
     cues: ['Knees to chest, lean back until the torso is level.', 'Cannot pull in from the bottom? Enter from the top and lower.'],
     abort: 'Hips drop, back rounds, or you needed momentum.'
   },
+  // TIER — German Hang / Tuck / Advanced Tuck / Straddle / Full.
+  'back-lever': {
+    name: 'Back Lever', unit: 'seconds held', step: 1, suffix: 's',
+    coach: 'At your current stage. Stop when the shoulders round or hips pike.',
+    cues: ['Invert from a hang until the body is horizontal, face down.', 'Straight arms throughout — the shoulders hold the position, not a bent-arm pull.'],
+    abort: 'Shoulders round, hips pike, or you need to kick into the position.'
+  },
   'ring-row': {
     name: 'Ring Row', unit: 'clean reps', step: 1, suffix: '',
     coach: 'Chest to rings, every one.',
