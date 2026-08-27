@@ -5,7 +5,7 @@ import { saveBaseline } from '../services/bulk-entry-service.js';
 import { exportAsText, downloadText } from '../services/export-service.js';
 import { restartProgram, dateForWeekDay } from '../services/calendar-service.js';
 import { setRestSettings } from '../services/settings-service.js';
-import { allBaselines, scheduleRetest, cancelRetest } from '../services/baseline-service.js';
+import { allBaselines, scheduleRetest, cancelRetest, advanceStage } from '../services/baseline-service.js';
 import { signOut } from '../supabase-client.js';
 
 export async function renderMore(container, ctx) {
@@ -176,7 +176,18 @@ async function drawBaselines(screen, ctx) {
         const spec = EXERCISES[id];
         const b = byExercise[id];
         if (!b) return row(spec.name, 'Not yet tested', '—');
-        return row(spec.name, `Week ${b.week}`, formatEntryValue(id, b) ?? '—');
+        const isTier = exerciseType(id) === 'TIER';
+        const tiers = isTier ? exerciseTiers(id) : null;
+        const currentIdx = isTier ? Math.min(Math.max(Math.round(b.value ?? 0), 0), tiers.length - 1) : null;
+        const canAdvance = isTier && currentIdx < tiers.length - 1;
+        const onClick = canAdvance ? async () => {
+          const nextWeek = ctx.todayWeekDay.week + 1;
+          const nextStage = tiers[currentIdx + 1];
+          if (!confirm(`Advance ${spec.name} from "${tiers[currentIdx]}" to "${nextStage}"? Working reps/time reset to a fresh starting point for the new stage, effective next week. Only ${spec.name} is affected — every other exercise keeps progressing at its own current stage.`)) return;
+          await advanceStage(ctx.userId, id, nextWeek, day);
+          drawBaselines(screen, ctx);
+        } : undefined;
+        return row(spec.name, `Week ${b.week}`, formatEntryValue(id, b) ?? '—', onClick);
       })
     ));
   }

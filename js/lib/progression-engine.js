@@ -53,8 +53,7 @@ const CONFIG = {
   LOAD_ROUND_LB: 5,
   LOAD_STEP_LOWER: 10,           // squat/deadlift weekly step
   LOAD_STEP_UPPER: 5,            // bench/press weekly step
-  DEFAULT_SETS: 3,
-  TIER_CLEAN_WEEKS_TO_ADVANCE: 2
+  DEFAULT_SETS: 3
 };
 
 const RULES = {
@@ -106,27 +105,19 @@ const RULES = {
     if(baselineTierIndex == null) return null;
     const tiers = params.tiers;
     const isHold = (params.subUnit || 'sec') === 'sec';
-    let idx = baselineTierIndex;
-    let streak = 0;
-    let advanced = false;
-    let weeksAtCurrent = 0;
-    history.forEach(h => {
-      if(h.formClean){
-        streak++; weeksAtCurrent++;
-        if(streak >= CONFIG.TIER_CLEAN_WEEKS_TO_ADVANCE && idx < tiers.length - 1){
-          idx++; streak = 0; weeksAtCurrent = 0; advanced = true;
-        }
-      } else { streak = 0; }
-    });
+    // Stage never auto-advances — it only ever moves via the user's own "Advance to next
+    // stage" action on the Baselines screen (baseline-service.js's advanceStage), which
+    // moves the baseline itself. Reps/hold-time below just keep growing indefinitely at
+    // whatever stage that baseline says, with no ceiling and nothing here that resets it.
+    const idx = baselineTierIndex;
+    const weeksAtCurrent = history.filter(h => h.formClean).length;
 
-    // Performance target at the current stage. Advancing a stage resets the
-    // target to a conservative starting point — the harder position is the
-    // new stimulus, so demanding the old duration/reps on it would be a jump
-    // in two variables at once.
+    // Performance target at the current stage. When advanceStage moves the baseline to a
+    // new stage, it leaves sub_value null on that new row — baselineSub is null here as a
+    // result, landing in the "starting conservative" branch below, which is what resets
+    // the target for the new stage. Nothing in this function does that itself anymore.
     let target;
-    if(advanced){
-      target = isHold ? 10 : 3;
-    } else if(baselineSub != null && baselineSub > 0){
+    if(baselineSub != null && baselineSub > 0){
       const base = baselineSub * (isHold ? CONFIG.WORKING_FRACTION_HOLD : CONFIG.WORKING_FRACTION_REPS);
       if(isHold){
         const grown = base * Math.pow(1 + CONFIG.HOLD_WEEKLY_GAIN, weeksAtCurrent);
@@ -139,14 +130,15 @@ const RULES = {
     }
 
     const unitTxt = isHold ? `${target}s` : `${target}`;
+    const atMax = idx >= tiers.length - 1;
     const nextTier = tiers[Math.min(idx+1, tiers.length-1)];
     return {
       text: `${tiers[idx]} — ${CONFIG.DEFAULT_SETS} × ${unitTxt}`,
-      why: advanced
-        ? `Advanced from "${tiers[baselineTierIndex]}" on clean-form weeks — target reset because the position itself got harder.`
-        : (baselineSub != null && baselineSub > 0
-            ? `From your Week 0 ${baselineSub}${isHold?'s':' reps'} at this stage. ${CONFIG.TIER_CLEAN_WEEKS_TO_ADVANCE} consecutive clean weeks advances you to "${nextTier}".`
-            : `No performance logged at this stage yet — starting conservative. ${CONFIG.TIER_CLEAN_WEEKS_TO_ADVANCE} clean weeks advances you to "${nextTier}".`)
+      why: baselineSub != null && baselineSub > 0
+        ? (atMax
+            ? `From your ${baselineSub}${isHold?'s':' reps'} at this stage. This is the top stage — the number above just keeps growing.`
+            : `From your ${baselineSub}${isHold?'s':' reps'} at this stage. Tap this exercise on Baselines to manually advance to "${nextTier}" when you're ready.`)
+        : `No performance logged at this stage yet — starting conservative.`
     };
   },
 

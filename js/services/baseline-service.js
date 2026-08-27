@@ -9,7 +9,8 @@
 // resets every exercise's baseline without restarting the program or touching history.
 
 import { supabase } from '../supabase-client.js';
-import { allBaselines, logEntry, setBaseline } from './entries-repo.js';
+import { allBaselines, getBaseline, logEntry, setBaseline } from './entries-repo.js';
+import { exerciseTiers } from '../data/exercises.js';
 
 export { allBaselines };
 
@@ -44,4 +45,20 @@ export async function cancelRetest(userId) {
 export async function logRetestEntry(args) {
   await logEntry(args);
   await setBaseline(args.userId, args.exerciseId, args.week);
+}
+
+// Per-exercise, user-triggered stage advance (Baselines screen's "Advance to next
+// stage") — moves just this one exercise's baseline up one stage, effective next week;
+// every other exercise's baseline is untouched. Reuses the same insert-then-flip
+// mechanism as logRetestEntry above rather than new plumbing. sub_value is left null so
+// the next Rx computation lands in RULES.TIER's "no performance logged at this stage
+// yet" branch — that's what resets the target to a conservative starting point at the
+// new stage, not anything hardcoded here.
+export async function advanceStage(userId, exerciseId, week, day) {
+  const baseline = await getBaseline(userId, exerciseId);
+  const tiers = exerciseTiers(exerciseId);
+  const currentIdx = Math.round(baseline?.value ?? 0);
+  const newIdx = Math.min(currentIdx + 1, tiers.length - 1);
+  await logEntry({ userId, week, day, exerciseId, value: newIdx, subValue: null, formClean: true, notes: `Manually advanced to "${tiers[newIdx]}"` });
+  await setBaseline(userId, exerciseId, week);
 }
