@@ -1,4 +1,5 @@
 import { el } from '../dom.js';
+import { acquireWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
 
 // A short, actively-supervised phase's countdown (a 5s "get in position" cue, or a live
 // hold) — timestamp-based, same fix as rest-timer.js and for the same reason: a plain
@@ -23,11 +24,13 @@ export function phaseTimer({ label, seconds, accent, resumeEndAt, onPersist, onD
 
   let done = false;
   let timer = null;
+  let wakeLockHeld = false;
 
   const stop = () => {
     if (timer) clearInterval(timer);
     timer = null;
     document.removeEventListener('visibilitychange', tick);
+    if (wakeLockHeld) { wakeLockHeld = false; releaseWakeLock(); }
   };
 
   const complete = () => {
@@ -45,6 +48,8 @@ export function phaseTimer({ label, seconds, accent, resumeEndAt, onPersist, onD
   }
 
   timer = setInterval(tick, 1000);
+  wakeLockHeld = true;
+  acquireWakeLock();
   document.addEventListener('visibilitychange', tick);
   // The completion check is deferred to a microtask rather than run synchronously here
   // (display text above is still set synchronously): resuming an already-elapsed phase

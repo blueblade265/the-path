@@ -1,5 +1,6 @@
 import { el } from '../dom.js';
 import { playChime } from '../../lib/chime.js';
+import { acquireWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
 
 // Honest limitation: a plain web page cannot keep running — or make sound — while the
 // phone's screen is fully off/locked. That's an OS-level restriction; overriding it
@@ -27,11 +28,13 @@ export function restTimer({ seconds, resumeEndAt, onPersist, onDone }) {
 
   let done = false;
   let timer = null;
+  let wakeLockHeld = false;
 
   const stop = () => {
     if (timer) clearInterval(timer);
     timer = null;
     document.removeEventListener('visibilitychange', tick);
+    if (wakeLockHeld) { wakeLockHeld = false; releaseWakeLock(); }
   };
 
   const complete = () => {
@@ -50,6 +53,8 @@ export function restTimer({ seconds, resumeEndAt, onPersist, onDone }) {
   }
 
   timer = setInterval(tick, 1000);
+  wakeLockHeld = true;
+  acquireWakeLock();
   document.addEventListener('visibilitychange', tick);
   // Deferred one microtask — see phase-timer.js's identical comment: resuming an
   // already-elapsed rest (came back after it had fully finished) would otherwise fire
