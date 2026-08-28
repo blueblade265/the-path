@@ -1,16 +1,18 @@
-// Streak / "chasing" / consistency / forecast logic — NONE of this exists in
-// progression-engine.js. The mockup's versions of all four were hardcoded mock arrays,
-// not real derivations; this is genuinely new code, not a port.
+// Streak / tier-ladder-progress / consistency logic — NONE of this exists in
+// progression-engine.js. The mockup's versions were hardcoded mock arrays, not real
+// derivations; this is genuinely new code, not a port.
 //
 // Resolved scope decisions (undocumented in the mockup, decided here):
 //  - Streak is whole-program-week, not per-exercise: a week counts as "clean" only if
 //    every exercise logged that week had form_clean=true, matching the mockup's own
 //    detail-sheet copy ("Week 6 — all five movements clean").
-//  - Forecasts NEVER surface a calendar date, only "N clean weeks away" — this was an
-//    explicit design principle stated in the mockup itself (a date would falsely assume
-//    no future form breaks).
+//
+// No more "N clean weeks away" forecast — that predicted a stage auto-advance, which no
+// longer happens (see progression-engine.js's RULES.TIER: stage is fixed at whatever the
+// baseline says until a manual "Advance to next stage" action moves it). Predicting a
+// timeline for a manual decision doesn't mean anything, so tierProgress below just
+// reports the current stage directly from the is_baseline row — no streak simulation.
 
-import { CONFIG } from '../lib/progression-engine.js';
 import { EXERCISES, exerciseType, exerciseTiers } from '../data/exercises.js';
 import { allEntries } from './entries-repo.js';
 
@@ -31,28 +33,15 @@ export function computeStreak(entries) {
   return streak;
 }
 
-// Replicates progression-engine.js's TIER advance logic (RULES.TIER) just enough to
-// report current stage + clean-streak-at-stage, without duplicating the prescription
-// text itself (that stays owned by computeRx via rx-service.js).
+// Current stage read straight from the is_baseline row — stage only ever moves via the
+// user's own manual "Advance to next stage" action (baseline-service.js's advanceStage),
+// which itself moves the baseline, so there's nothing to simulate/derive here.
 function tierProgress(exerciseId, historyRows) {
   const tiers = exerciseTiers(exerciseId);
   if (!tiers || !historyRows.length) return null;
-  const sorted = [...historyRows].sort((a, b) => a.week - b.week);
-  const baseline = sorted[0].value;
-  if (baseline == null) return null;
-  let idx = Math.min(Math.max(Math.round(baseline), 0), tiers.length - 1);
-  let streak = 0;
-  for (const row of sorted.slice(1)) {
-    if (row.form_clean) {
-      streak++;
-      if (streak >= CONFIG.TIER_CLEAN_WEEKS_TO_ADVANCE && idx < tiers.length - 1) {
-        idx++;
-        streak = 0;
-      }
-    } else {
-      streak = 0;
-    }
-  }
+  const baselineRow = historyRows.find(r => r.is_baseline);
+  if (!baselineRow || baselineRow.value == null) return null;
+  const idx = Math.min(Math.max(Math.round(baselineRow.value), 0), tiers.length - 1);
   const atTop = idx >= tiers.length - 1;
   return {
     exerciseId,
@@ -60,14 +49,12 @@ function tierProgress(exerciseId, historyRows) {
     tierCount: tiers.length,
     tierNames: tiers,
     tierName: tiers[idx],
-    nextTierName: atTop ? null : tiers[idx + 1],
-    weeksToAdvance: atTop ? null : Math.max(0, CONFIG.TIER_CLEAN_WEEKS_TO_ADVANCE - streak)
+    nextTierName: atTop ? null : tiers[idx + 1]
   };
 }
 
-// Progress for every TIER exercise that has a baseline, regardless of whether it's
-// still advancing (used by the Insights tab's "every ladder" list; findChasing below
-// narrows this to the single closest one for the Home tab's "Chasing" card).
+// Progress for every TIER exercise that has a baseline — the Insights tab's "every
+// ladder" list.
 export function allTierProgress(entries) {
   const byExercise = groupBy(entries, e => e.exercise_id);
   const results = [];
@@ -78,29 +65,6 @@ export function allTierProgress(entries) {
     if (progress) results.push(progress);
   }
   return results;
-}
-
-// The single TIER exercise closest to its next stage (smallest weeksToAdvance), or null
-// if nothing is currently in progress (no baselines yet, or everything already maxed).
-export function findChasing(entries) {
-  const byExercise = groupBy(entries, e => e.exercise_id);
-  const candidates = [];
-  for (const id of Object.keys(EXERCISES)) {
-    if (exerciseType(id) !== 'TIER') continue;
-    const rows = byExercise.get(id) || [];
-    const progress = tierProgress(id, rows);
-    if (progress && progress.weeksToAdvance != null) candidates.push(progress);
-  }
-  if (!candidates.length) return null;
-  candidates.sort((a, b) => a.weeksToAdvance - b.weeksToAdvance);
-  return candidates[0];
-}
-
-// Never a calendar date, per the mockup's own stated design principle.
-export function forecastText(weeksToAdvance) {
-  if (weeksToAdvance == null) return null;
-  if (weeksToAdvance <= 1) return 'One clean week away — if it is clean.';
-  return `${weeksToAdvance} clean weeks away — every one clean.`;
 }
 
 // scheduledSlots: [{week, day}] for non-rest program days already due (date <= today),
@@ -134,9 +98,8 @@ export function buildConsistency(entries, scheduledSlots) {
 export async function loadInsights(userId, scheduledSlots) {
   const entries = await allEntries(userId);
   const streak = computeStreak(entries);
-  const chasing = findChasing(entries);
   const consistency = buildConsistency(entries, scheduledSlots);
-  return { entries, streak, chasing, consistency };
+  return { entries, streak, consistency };
 }
 
 function groupBy(arr, keyFn) {

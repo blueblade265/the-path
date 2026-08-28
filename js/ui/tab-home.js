@@ -1,5 +1,5 @@
 import { el, clear } from './dom.js';
-import { loadInsights, forecastText } from '../services/insights-service.js';
+import { loadInsights } from '../services/insights-service.js';
 import { weekDayForDate } from '../services/calendar-service.js';
 import { sessionStatusFor, startSession } from '../services/session-state.js';
 import { openDetail } from './detail-sheet.js';
@@ -23,7 +23,7 @@ export async function renderHome(container, ctx) {
     if (!ctx.dayPlan[wd.day].rest) scheduledSlots.push(wd);
   }
 
-  const { entries, streak, chasing, consistency } = await loadInsights(ctx.userId, scheduledSlots);
+  const { entries, streak, consistency } = await loadInsights(ctx.userId, scheduledSlots);
 
   const streakTicks = el('div', { style: 'display:flex;gap:5px;margin-top:15px' },
     Array.from({ length: 12 }, (_, i) => {
@@ -43,22 +43,6 @@ export async function renderHome(container, ctx) {
     streakTicks
   ]);
   screen.appendChild(streakCard);
-
-  if (chasing) {
-    const chaseCard = el('div', { class: 'card card--clickable', onClick: () => openDetail(chasingDetailSpec(chasing)) }, [
-      el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px' }, [
-        el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--amber)', text: 'Chasing' }),
-        el('div', { style: 'font:400 16px/1 var(--font-body);color:var(--amber)', text: '›' })
-      ]),
-      el('div', { style: 'display:flex;align-items:baseline;gap:9px;flex-wrap:wrap' }, [
-        el('div', { style: 'font:500 19px/1.1 var(--font-display);text-transform:uppercase;color:var(--text-faint)', text: chasing.tierName }),
-        el('div', { style: 'font:400 15px/1 var(--font-body);color:var(--text-faint)', text: '→' }),
-        el('div', { style: 'font:600 19px/1.1 var(--font-display);text-transform:uppercase;color:var(--text-primary)', text: chasing.nextTierName })
-      ]),
-      el('div', { style: 'font:400 11px/1.5 var(--font-mono);color:var(--text-muted);margin-top:9px', text: forecastText(chasing.weeksToAdvance) })
-    ]);
-    screen.appendChild(chaseCard);
-  }
 
   const weekGrid = el('div', { style: 'display:flex;gap:6px' }, Array.from({ length: 7 }, (_, i) => {
     const d = addDays(sunday, i);
@@ -143,13 +127,6 @@ function openStreakDetail(entries, streak) {
       })
     }]
   });
-}
-
-function chasingDetailSpec(chasing) {
-  return {
-    kicker: 'Next advance', title: `${chasing.tierName} → ${chasing.nextTierName}`,
-    hero: { label: 'Requirement', value: forecastText(chasing.weeksToAdvance) }
-  };
 }
 
 function addDays(date, n) {

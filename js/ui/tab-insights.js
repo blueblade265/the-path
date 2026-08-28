@@ -1,7 +1,7 @@
 import { el, clear } from './dom.js';
 import { EXERCISES } from '../data/exercises.js';
 import { weekDayForDate } from '../services/calendar-service.js';
-import { loadInsights, allTierProgress, forecastText } from '../services/insights-service.js';
+import { loadInsights, allTierProgress } from '../services/insights-service.js';
 import { openDetail } from './detail-sheet.js';
 
 export async function renderInsights(container, ctx) {
@@ -57,19 +57,15 @@ export async function renderInsights(container, ctx) {
         L.nextTierName ? el('div', { style: 'font:400 12px/1 var(--font-body);color:var(--text-faint)', text: '→' }) : null,
         L.nextTierName ? el('div', { style: 'font:500 14px/1.15 var(--font-display);text-transform:uppercase;color:var(--text-muted)', text: L.nextTierName }) : null
       ]),
-      el('div', { style: 'font:400 11px/1.5 var(--font-mono);color:var(--text-muted)', text: L.nextTierName ? forecastText(L.weeksToAdvance) : 'Top of the ladder.' })
+      el('div', { style: 'font:400 11px/1.5 var(--font-mono);color:var(--text-muted)', text: L.nextTierName ? "Advance manually from Baselines when you're ready." : 'Top of the ladder.' })
     ]));
   }
-
-  screen.appendChild(el('div', { style: 'border:1px dashed var(--card-border-strong);border-radius:11px;padding:13px 14px;margin-top:6px' }, [
-    el('div', { style: 'font:400 11px/1.6 var(--font-mono);color:var(--text-dim)', text: 'Forecasts assume every week from here is clean. They are a ceiling, not a schedule.' })
-  ]));
 }
 
 function ladderDetailSpec(L, spec) {
   return {
     kicker: 'Next advance', title: L.nextTierName ? `${L.tierName} → ${L.nextTierName}` : `${L.tierName} — top of the ladder`,
-    hero: L.nextTierName ? { label: 'Requirement', value: forecastText(L.weeksToAdvance) } : null,
+    hero: L.nextTierName ? { label: 'Advance', value: "Manual — from Baselines, when you're ready" } : null,
     ladder: L.tierNames.map((name, i) => ({
       name, reached: i < L.tierIndex, current: i === L.tierIndex,
       meta: i < L.tierIndex ? 'cleared' : (i === L.tierIndex ? 'here' : '')
