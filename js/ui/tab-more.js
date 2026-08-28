@@ -12,6 +12,12 @@ function sortedDayKeys(dayPlan) {
   return Object.keys(dayPlan).map(Number).sort((a, b) => a - b);
 }
 
+// Program Builder's add-exercise picker groups (js/data/exercises.js's `category` field)
+// in this fixed order — an exercise with no category (shouldn't happen, but cheaper than
+// crashing on a future addition that forgets one) falls into "Other" at the end.
+const CATEGORY_LABELS = { push: 'Push', pull: 'Pull', legs: 'Legs', core: 'Core', mobility: 'Mobility' };
+const CATEGORY_ORDER = [...Object.keys(CATEGORY_LABELS), 'other'];
+
 export async function renderMore(container, ctx) {
   clear(container);
   const screen = el('div', { class: 'screen' });
@@ -258,17 +264,29 @@ function drawProgramBuilder(screen, ctx) {
     }
 
     formHost.appendChild(el('div', { style: 'font:500 9.5px/1 var(--font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);margin:16px 0 6px', text: 'Add exercise' }));
+    const searchInput = el('input', { type: 'text', class: 'notes-field', style: 'margin-bottom:8px', placeholder: 'Search the library…' });
+    formHost.appendChild(searchInput);
     const addPicker = el('select', { class: 'notes-field', style: 'margin-bottom:8px' });
     formHost.appendChild(addPicker);
 
     function refreshAddPicker() {
       clear(addPicker);
       addPicker.appendChild(el('option', { value: '', text: '— choose an exercise —' }));
-      Object.keys(EXERCISES)
+      const term = searchInput.value.trim().toLowerCase();
+      const available = Object.keys(EXERCISES)
         .filter(id => !EXERCISES[id].deprecated && !draftIds.includes(id))
-        .sort((a, b) => EXERCISES[a].name.localeCompare(EXERCISES[b].name))
-        .forEach(id => addPicker.appendChild(el('option', { value: id, text: EXERCISES[id].name })));
+        .filter(id => !term || EXERCISES[id].name.toLowerCase().includes(term));
+      for (const cat of CATEGORY_ORDER) {
+        const ids = available
+          .filter(id => (EXERCISES[id].category || 'other') === cat)
+          .sort((a, b) => EXERCISES[a].name.localeCompare(EXERCISES[b].name));
+        if (!ids.length) continue;
+        addPicker.appendChild(el('optgroup', { label: CATEGORY_LABELS[cat] || 'Other' },
+          ids.map(id => el('option', { value: id, text: EXERCISES[id].name }))
+        ));
+      }
     }
+    searchInput.addEventListener('input', refreshAddPicker);
 
     formHost.appendChild(el('button', {
       class: 'btn btn--outline', style: 'margin-bottom:16px', text: 'Add to this day',
