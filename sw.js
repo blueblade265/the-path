@@ -36,3 +36,15 @@ self.addEventListener('fetch', event => {
       .catch(() => caches.match(request))
   );
 });
+
+// Timer-completion notifications (js/lib/timer-notify.js) — tapping one should bring you
+// back into the app rather than just dismissing, same as any normal notification.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then(clientList => {
+      if (clientList.length > 0) return clientList[0].focus();
+      return self.clients.openWindow('.');
+    })
+  );
+});

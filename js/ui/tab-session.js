@@ -13,6 +13,7 @@ import { setChips } from './components/set-chips.js';
 import { restTimer } from './components/rest-timer.js';
 import { phaseTimer } from './components/phase-timer.js';
 import { playChime } from '../lib/chime.js';
+import { notifyTimerDone } from '../lib/timer-notify.js';
 import { banner } from './components/banner.js';
 import { openDetail } from './detail-sheet.js';
 
@@ -589,6 +590,7 @@ async function buildHoldTimeFlow(id, spec, state, existing, ctx, prescribedSecon
 
   async function onHoldComplete() {
     playChime();
+    notifyTimerDone('Hold complete', `${spec.name} — log it and move on.`);
     try {
       await logEntry({
         userId: ctx.userId, week: state.week, day: state.day, exerciseId: id,

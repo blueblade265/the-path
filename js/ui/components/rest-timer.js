@@ -1,15 +1,19 @@
 import { el } from '../dom.js';
 import { playChime } from '../../lib/chime.js';
 import { acquireWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
+import { notifyTimerDone } from '../../lib/timer-notify.js';
 
 // Honest limitation: a plain web page cannot keep running — or make sound — while the
-// phone's screen is fully off/locked. That's an OS-level restriction; overriding it
-// needs a native app or server-scheduled push notifications, neither of which this
-// static site has. What this DOES guarantee: the countdown is timestamp-based (not a
-// naive decrement), so browser throttling of a backgrounded/dimmed tab never causes
-// drift — the instant the page's JS runs again (screen comes back on, tab regains
-// focus, or the app is reopened after being fully killed), it recomputes from the real
-// end time and fires the chime/vibrate immediately if rest was already up.
+// phone's screen is fully off/locked. That's an OS-level restriction; overriding it for
+// real needs server-scheduled push notifications, which this static site doesn't have
+// (yet). What IS in place: the countdown is timestamp-based (not a naive decrement), so
+// browser throttling of a backgrounded/dimmed tab never causes drift — the instant the
+// page's JS runs again (screen comes back on, tab regains focus, or the app is reopened
+// after being fully killed), it recomputes from the real end time and fires the chime/
+// vibrate immediately if rest was already up. On top of that, notifyTimerDone (below)
+// fires a real system notification with vibration if the tab is currently hidden/
+// backgrounded and notifications are enabled (More screen) — works for "switched to
+// another app, phone unlocked," not for a fully locked screen.
 //
 // Pure component: knows nothing about session-state.js, userId, or exercise IDs (it
 // used to persist its own single localStorage key per user, which meant two concurrent
@@ -42,6 +46,7 @@ export function restTimer({ seconds, resumeEndAt, onPersist, onDone }) {
     done = true;
     stop();
     playChime();
+    notifyTimerDone('Rest done', 'Back to it — your next set is up.');
     onDone?.();
   };
 

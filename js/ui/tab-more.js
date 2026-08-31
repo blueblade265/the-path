@@ -6,6 +6,7 @@ import { restartProgram, dateForWeekDay } from '../services/calendar-service.js'
 import { setRestSettings } from '../services/settings-service.js';
 import { setDayTitle, setDayExercises } from '../services/program-service.js';
 import { allBaselines, scheduleRetest, cancelRetest, advanceStage } from '../services/baseline-service.js';
+import { notificationStatus, requestNotificationPermission } from '../lib/timer-notify.js';
 import { signOut } from '../supabase-client.js';
 
 function sortedDayKeys(dayPlan) {
@@ -44,7 +45,8 @@ function drawRoot(screen, ctx) {
   screen.appendChild(group('Rules', [
     row('Rest timers', 'Auto-starts after each logged set', `${ctx.restSettings.load}s / ${ctx.restSettings.default}s`, () => drawRestTimers(screen, ctx)),
     row('Sets per movement', 'Program default', '3'),
-    row('Units', 'Applies to loaded lifts', 'lb')
+    row('Units', 'Applies to loaded lifts', 'lb'),
+    notificationRow(screen, ctx)
   ]));
 
   screen.appendChild(group('Account', [
@@ -72,6 +74,25 @@ function row(label, sub, value, onClick) {
 
 function backBtn(onClick) {
   return el('button', { class: 'btn btn--outline', style: 'margin-bottom:16px', text: '‹ Back to More', onClick });
+}
+
+// Permission prompts only fire from a real user gesture — this tap IS that gesture.
+// 'denied' can't be reversed from JS at all once set; the sub-text says so rather than
+// offering a dead button.
+function notificationRow(screen, ctx) {
+  const status = notificationStatus();
+  const SUB = {
+    unsupported: 'Not supported on this browser',
+    default: 'Get notified if you switch apps mid-timer',
+    granted: 'On — works while backgrounded, not while fully locked',
+    denied: 'Blocked — re-enable from your browser/OS notification settings'
+  };
+  const VALUE = { unsupported: '', default: 'Enable', granted: 'On', denied: 'Blocked' };
+  const onClick = status === 'default' ? async () => {
+    await requestNotificationPermission();
+    drawRoot(screen, ctx);
+  } : undefined;
+  return row('Timer notifications', SUB[status], VALUE[status], onClick);
 }
 
 function drawBulkEntry(screen, ctx) {
