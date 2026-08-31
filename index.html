@@ -6,6 +6,13 @@
 <title>The Path</title>
 <meta name="description" content="Personal training log with algorithmic progression.">
 <meta name="theme-color" content="#0d0e0a">
+<link rel="manifest" href="manifest.json">
+<!-- iOS ignores manifest.json for install/home-screen behavior — these three are what
+     actually make "Add to Home Screen" launch fullscreen instead of opening Safari. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Path">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
@@ -18,5 +25,12 @@
 <body>
 <div id="app"></div>
 <script type="module" src="js/ui/app.js"></script>
+<script>
+  // Registered independently of js/ui/app.js's own boot sequence — this should still
+  // install even if the Supabase-dependent app JS throws during startup.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+  }
+</script>
 </body>
 </html>

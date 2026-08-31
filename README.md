@@ -75,7 +75,18 @@ above for how access is actually gated); no Google Console restriction is needed
 4. Push to `main` — `.github/workflows/deploy.yml` builds `js/config.js` from the secrets
    above (never committed) and deploys.
 
-### 3. First sign-in
+### 3. Installable as a PWA
+`manifest.json` + `sw.js` make this installable to a home screen (standalone, no browser
+chrome) rather than just a bookmarked tab — see `icons/README.md` for the three PNG files
+needed before the icon actually shows up anywhere; nothing else to configure, no build
+step. The service worker is network-first (always fetches live when online, only serves
+its cache when the network genuinely fails) specifically because this project deploys
+often — a cache-first strategy would mean stale JS surviving past its own bugfixes.
+Installing: Android/Chrome prompts automatically; iOS is manual only (Safari → Share →
+Add to Home Screen, no prompt exists — you'll need to tell people). Once installed on
+iOS 16.4+, Web Push becomes available (it isn't for a PWA just open in a Safari tab).
+
+### 4. First sign-in
 Each user sets their own Week 0 / Day 1 date on first sign-in (this anchors the Calendar
 tab). It can be changed later from More → Restart program — that also clears any
 recorded vacation weeks, since they'd otherwise misalign against the new date.
