@@ -23,6 +23,11 @@ export async function requestNotificationPermission() {
 // Only actually shows anything if permission is granted AND the page isn't currently
 // visible — no point interrupting you with a system notification for a timer you're
 // already looking at complete on-screen.
+//
+// No `vibrate` pattern — tried it, Android's per-site notification channel didn't
+// reliably honor it (a device/OS settings issue, not fixable from here) and chasing it
+// wasn't worth it. Relies on the OS's own default notification sound instead — turn on
+// notification sounds for this site/app in your phone's settings and that's the alert.
 export async function notifyTimerDone(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (document.visibilityState === 'visible') return;
@@ -33,7 +38,6 @@ export async function notifyTimerDone(title, body) {
       body,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
-      vibrate: [200, 100, 200],
       tag: 'the-path-timer',
       renotify: true
     });

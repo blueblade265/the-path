@@ -11,7 +11,8 @@ import { notifyTimerDone } from '../../lib/timer-notify.js';
 // page's JS runs again (screen comes back on, tab regains focus, or the app is reopened
 // after being fully killed), it recomputes from the real end time and fires the chime/
 // vibrate immediately if rest was already up. On top of that, notifyTimerDone (below)
-// fires a real system notification with vibration if the tab is currently hidden/
+// fires a real system notification (relies on the phone's own notification sound — see
+// timer-notify.js for why there's no vibrate pattern) if the tab is currently hidden/
 // backgrounded and notifications are enabled (More screen) — works for "switched to
 // another app, phone unlocked," not for a fully locked screen.
 //
