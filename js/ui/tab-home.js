@@ -3,6 +3,8 @@ import { loadInsights } from '../services/insights-service.js';
 import { weekDayForDate } from '../services/calendar-service.js';
 import { sessionStatusFor, startSession } from '../services/session-state.js';
 import { openDetail } from './detail-sheet.js';
+import { getScheduleOverrides, overridesToMap } from '../services/schedule-service.js';
+import { planAt } from '../services/schedule-resolver.js';
 
 const DOW_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -14,13 +16,14 @@ export async function renderHome(container, ctx) {
   const today = new Date();
   const todayDow = today.getDay();
   const sunday = addDays(today, -todayDow);
+  const overrides = overridesToMap(await getScheduleOverrides(ctx.userId));
   const scheduledSlots = [];
   for (let i = 0; i < 7; i++) {
     const d = addDays(sunday, i);
     if (d > today) continue;
     const wd = weekDayForDate(ctx.startDate, ctx.skips, d);
     if (!wd) continue; // before the program started — not a scheduled day
-    if (!ctx.dayPlan[wd.day].rest) scheduledSlots.push(wd);
+    if (!planAt(ctx.dayPlan, overrides, wd.week, wd.day).rest) scheduledSlots.push(wd);
   }
 
   const { entries, streak, consistency } = await loadInsights(ctx.userId, scheduledSlots);
@@ -58,7 +61,7 @@ export async function renderHome(container, ctx) {
     }
 
     const { week, day } = wd;
-    const meta = ctx.dayPlan[day];
+    const meta = planAt(ctx.dayPlan, overrides, week, day);
     const logged = entries.some(e => e.week === week && e.day === day);
     const isFuture = d > today;
     const mark = meta.rest ? '—' : (logged ? '✓' : (isFuture ? '·' : '•'));
@@ -78,7 +81,7 @@ export async function renderHome(container, ctx) {
     weekGrid
   ]));
 
-  const meta = ctx.dayPlan[todayDow];
+  const meta = planAt(ctx.dayPlan, overrides, ctx.todayWeekDay.week, todayDow);
   const todayIds = meta.exerciseIds;
   // Session status (session-state.js), not raw entry counts, is the source of truth for
   // "where you are in today's workout" — a session can be active with nothing logged

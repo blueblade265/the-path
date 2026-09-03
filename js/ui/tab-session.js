@@ -4,6 +4,8 @@ import { entriesForDay, logEntry, historyForExercise, getBaseline } from '../ser
 import { prescriptionsForDay } from '../services/rx-service.js';
 import { dateForWeekDay } from '../services/calendar-service.js';
 import { logRetestEntry } from '../services/baseline-service.js';
+import { getScheduleOverrides, overridesToMap } from '../services/schedule-service.js';
+import { planAt } from '../services/schedule-resolver.js';
 import {
   sessionStatusFor, loadSession, startSession, completeSession,
   getExerciseState, updateExercise, addCompletedSet, setPhase, clearPhase
@@ -52,7 +54,8 @@ export async function renderSession(container, ctx, target) {
   // it stays historically accurate if you browse back to it later.
   const isRetestWeek = ctx.pendingRetestWeek != null && week === ctx.pendingRetestWeek;
 
-  const meta = ctx.dayPlan[day];
+  const overrides = overridesToMap(await getScheduleOverrides(ctx.userId));
+  const meta = planAt(ctx.dayPlan, overrides, week, day);
   const ids = meta.exerciseIds;
   // Reassigned by refresh() — a live session's individual exercise loggers write straight
   // to Supabase/session-state.js without going through this outer render's state, so this

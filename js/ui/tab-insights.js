@@ -3,6 +3,8 @@ import { EXERCISES } from '../data/exercises.js';
 import { weekDayForDate } from '../services/calendar-service.js';
 import { loadInsights, allTierProgress } from '../services/insights-service.js';
 import { openDetail } from './detail-sheet.js';
+import { getScheduleOverrides, overridesToMap } from '../services/schedule-service.js';
+import { planAt } from '../services/schedule-resolver.js';
 
 export async function renderInsights(container, ctx) {
   clear(container);
@@ -10,10 +12,11 @@ export async function renderInsights(container, ctx) {
   container.appendChild(screen);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overrides = overridesToMap(await getScheduleOverrides(ctx.userId));
   const scheduledSlots = [];
   for (let i = 0, d = new Date(today); scheduledSlots.length < 36 && d >= ctx.startDate; i++) {
     const { week, day } = weekDayForDate(ctx.startDate, ctx.skips, d);
-    if (!ctx.dayPlan[day].rest) scheduledSlots.push({ week, day });
+    if (!planAt(ctx.dayPlan, overrides, week, day).rest) scheduledSlots.push({ week, day });
     d = addDays(d, -1);
   }
 
